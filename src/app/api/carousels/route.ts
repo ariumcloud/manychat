@@ -4,13 +4,7 @@ import { getAccount } from "@/lib/repo";
 import { withApi } from "@/lib/api";
 import { generateCarousel } from "@/lib/carousel/generate";
 import { pickProvider, providerLabel } from "@/lib/carousel/providers";
-import {
-  ANGLES,
-  clampSlideCount,
-  isAngle,
-  MAX_SLIDES,
-  MIN_SLIDES,
-} from "@/lib/carousel/prompt";
+import { clampSlideCount, MAX_SLIDES, MIN_SLIDES, PRESETS } from "@/lib/carousel/prompt";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,17 +28,17 @@ async function getHandler() {
     // Sem chave nenhuma o botão de gerar precisa avisar antes, não falhar depois.
     ready: provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : Boolean(process.env.ANTHROPIC_API_KEY),
     slideRange: { min: MIN_SLIDES, max: MAX_SLIDES },
-    angles: ANGLES,
+    presets: PRESETS,
   });
 }
 
 /** Recebe a ideia e devolve o roteiro dos slides já gravado. */
 async function postHandler(req: Request) {
   const account = await getAccount();
-  const { brief, slide_count, angle } = (await req.json().catch(() => ({}))) as {
+  const { brief, slide_count, direction } = (await req.json().catch(() => ({}))) as {
     brief?: string;
     slide_count?: number;
-    angle?: string;
+    direction?: string;
   };
 
   if (!brief?.trim() || brief.trim().length < 30) {
@@ -56,7 +50,7 @@ async function postHandler(req: Request) {
 
   const { title, slides } = await generateCarousel(
     brief.trim(),
-    isAngle(angle) ? angle : "teste",
+    direction?.trim() || null,
     clampSlideCount(slide_count),
   );
 

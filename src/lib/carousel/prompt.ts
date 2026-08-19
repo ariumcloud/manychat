@@ -4,39 +4,33 @@ export const MIN_SLIDES = 4;
 export const MAX_SLIDES = 10;
 export const DEFAULT_SLIDES = 8;
 
-export const ANGLES = [
+/**
+ * Atalhos para o campo de direção. São TEXTO, não um tipo fechado — clicar
+ * preenche o campo e você edita. Antes isto era um seletor rígido, e toda ideia
+ * que não coubesse num dos cinco moldes era espremida nele.
+ */
+export const PRESETS = [
   {
-    id: "teste",
     label: "Testei e medi",
-    hint: "Rodei um experimento e tenho os números.",
+    text: "Conta como um teste que eu fiz: o resultado primeiro, depois a prova, depois o passo a passo do que eu fiz na ordem.",
   },
   {
-    id: "tutorial",
     label: "Passo a passo",
-    hint: "Ensino a fazer uma coisa específica.",
+    text: "Formato tutorial: cada slide entrega uma ação que a pessoa consegue repetir sozinha, na ordem exata de execução.",
   },
   {
-    id: "erros",
     label: "Erros e armadilhas",
-    hint: "O que ninguém avisa e derruba quem tenta.",
+    text: "Um erro por slide. Diz o erro, por que ele parece certo, e o que fazer no lugar. Nunca deixa erro sem saída.",
   },
   {
-    id: "contraintuitivo",
     label: "Contra-intuitivo",
-    hint: "Todo mundo acredita em X — e é por isso que não funciona.",
+    text: "Abre com a crença que todo mundo tem e o resultado que ela produz de verdade. Constrói o argumento sem debochar de quem acredita.",
   },
   {
-    id: "bastidor",
     label: "Bastidor",
-    hint: "Como eu construí / como funciona por dentro.",
+    text: "Como eu construí isso por dentro. Uma decisão por slide, incluindo o que quebrou no caminho.",
   },
 ] as const;
-
-export type AngleId = (typeof ANGLES)[number]["id"];
-
-export function isAngle(v: unknown): v is AngleId {
-  return ANGLES.some((a) => a.id === v);
-}
 
 export const CarouselSchema = z.object({
   title: z.string(),
@@ -58,66 +52,19 @@ export function clampSlideCount(n: unknown): number {
 }
 
 /**
- * Cada ângulo tem uma espinha diferente, mas todas seguem a mesma lógica:
- * abertura que prende, miolo que entrega, fechamento com UMA ação. O que muda
- * é quantos slides sobram para o miolo — calculado, não escrito à mão para
- * cada tamanho.
+ * A espinha é a mesma para qualquer post que funciona: abertura que ganha o
+ * arrasto, miolo que entrega uma ideia por slide, fechamento com UMA ação. O
+ * sabor vem da direção que o autor escreve, não de um molde fixo.
  */
-function structure(angle: AngleId, count: number): string {
+export function systemPrompt(count: number): string {
   const first = 3;
   const last = count - 1;
-  const middle = (what: string) =>
-    last < first
-      ? `- Slide ${first}: ${what}`
-      : last === first
-        ? `- Slide ${first}: ${what}`
-        : `- Slides ${first} a ${last}: ${what}`;
+  const middle =
+    last <= first
+      ? `- Slide ${first}: o miolo, com a ideia mais útil que sobrou.`
+      : `- Slides ${first} a ${last}: uma ideia por slide, na ordem que faz sentido para quem
+  vai executar. Nada de repetir a mesma ideia com outras palavras.`;
 
-  switch (angle) {
-    case "teste":
-      return `- Slide 1 (capa): o resultado concreto com número + o esforço irrisório que deu.
-- Slide 2: a prova. O painel, a métrica, o print que mostra que aconteceu mesmo.
-${middle(`um passo por slide, na ordem em que você fez, com o print de cada etapa.
-  O penúltimo slide traz a regra ou o detalhe que quase ninguém faz.`)}
-- Slide ${count} (fechamento): o que a pessoa faz HOJE. Uma ação, não três.`;
-
-    case "tutorial":
-      return `- Slide 1 (capa): o que a pessoa vai conseguir fazer ao final, concreto.
-- Slide 2: o que precisa ter na mão antes de começar. Nada de teoria.
-${middle(`um passo por slide, numerado, na ordem exata de execução. Cada slide
-  entrega UMA ação que a pessoa consegue repetir sem você.`)}
-- Slide ${count} (fechamento): o primeiro passo pra fazer agora.`;
-
-    case "erros":
-      return `- Slide 1 (capa): quantos erros são e o que eles custam. Sem suspense vago.
-- Slide 2: o erro mais caro de todos, direto.
-${middle(`um erro por slide. Diga o erro, por que ele parece certo, e o que
-  fazer no lugar. O que fazer no lugar é obrigatório — erro sem saída é reclamação.`)}
-- Slide ${count} (fechamento): qual desses a pessoa conserta hoje.`;
-
-    case "contraintuitivo":
-      return `- Slide 1 (capa): a crença comum + o resultado que ela produz de verdade.
-- Slide 2: por que todo mundo acredita nisso. Sem deboche de quem acredita.
-${middle(`a construção do argumento, um passo por slide: o que realmente
-  acontece, o que muda quando você inverte, e o custo de continuar como está.`)}
-- Slide ${count} (fechamento): o que fazer no lugar, em uma frase acionável.`;
-
-    case "bastidor":
-      return `- Slide 1 (capa): o que foi construído + o detalhe que faz parecer impossível.
-- Slide 2: por onde começou e por quê.
-${middle(`uma decisão por slide: o que foi feito, o que quebrou, como resolveu.
-  Onde algo deu errado, conte — é isso que separa bastidor de propaganda.`)}
-- Slide ${count} (fechamento): o que a pessoa pode replicar disso.`;
-  }
-}
-
-/**
- * A regra que sustenta o formato: número escrito precisa existir num print.
- *
- * Nem todo ângulo tem número, e forçar número onde não tem é o que produz
- * carrossel inventado. Por isso a regra é "nunca invente", não "sempre tenha".
- */
-export function systemPrompt(angle: AngleId, count: number): string {
   return `Você escreve carrosséis de Instagram no formato "card de tweet": fundo branco,
 texto curto, sem design. O nicho é marketing, automação e IA aplicada — quem lê
 executa, não é iniciante absoluto.
@@ -128,8 +75,8 @@ verdadeiro onde todo mundo é vago.
 REGRAS INEGOCIÁVEIS
 
 1. NUNCA invente número, nome de ferramenta, print ou resultado. Use só o que
-   estiver no relato. Se o relato não tem número, escreva sem número — texto
-   específico sem número é melhor que número inventado.
+   estiver no material. Se não tem número, escreva sem número — texto específico
+   sem número é melhor que número inventado.
 2. Quando houver um número, descreva em screenshot_hint qual print prova aquilo.
    Quando o slide não precisar de print, deixe screenshot_hint vazio.
 3. Escreva na primeira pessoa. Nunca conselho genérico, nunca "você precisa
@@ -144,14 +91,25 @@ REGRAS INEGOCIÁVEIS
 
 ESTRUTURA DOS ${count} SLIDES
 
-${structure(angle, count)}
+- Slide 1 (capa): a coisa mais forte que existe no material. Precisa dar vontade
+  de arrastar sem prometer nada vago.
+- Slide 2: o que sustenta a capa — a prova, o dado, ou o ponto mais concreto.
+${middle}
+- Slide ${count} (fechamento): o que a pessoa faz HOJE. Uma ação, não três.
 
 Com menos slides, corte do miolo — nunca corte a capa nem o fechamento.
+
+Se a pessoa escrever uma direção de como contar, ela manda sobre o sabor, o tom
+e a ordem. Ela NÃO manda sobre as regras acima: mesmo com direção, você não
+inventa número nem escreve genérico.
 
 Devolva exatamente ${count} slides, numerados de 1 a ${count}.
 Escreva em português do Brasil.`;
 }
 
-export function userPrompt(brief: string) {
-  return `Escreva o carrossel sobre isto:\n\n${brief}`;
+export function userPrompt(brief: string, direction?: string | null): string {
+  const dir = direction?.trim();
+  if (!dir) return `Material do post:\n\n${brief}`;
+
+  return `Material do post:\n\n${brief}\n\n---\n\nComo eu quero que seja contado:\n\n${dir}`;
 }

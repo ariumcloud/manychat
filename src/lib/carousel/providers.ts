@@ -2,13 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
-import {
-  CarouselSchema,
-  systemPrompt,
-  userPrompt,
-  type AngleId,
-  type ParsedCarousel,
-} from "./prompt";
+import { CarouselSchema, systemPrompt, userPrompt, type ParsedCarousel } from "./prompt";
 
 export type Provider = "anthropic" | "openai";
 
@@ -32,7 +26,7 @@ export function providerLabel(p: Provider) {
     : "Anthropic · claude-opus-5";
 }
 
-async function withAnthropic(brief: string, angle: AngleId, count: number): Promise<ParsedCarousel> {
+async function withAnthropic(brief: string, direction: string | null, count: number): Promise<ParsedCarousel> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error(
       "Defina ANTHROPIC_API_KEY no .env.local (ou use AI_PROVIDER=openai com OPENAI_API_KEY).",
@@ -46,8 +40,8 @@ async function withAnthropic(brief: string, angle: AngleId, count: number): Prom
     max_tokens: 16000,
     thinking: { type: "adaptive" },
     output_config: { effort: "high", format: zodOutputFormat(CarouselSchema) },
-    system: systemPrompt(angle, count),
-    messages: [{ role: "user", content: userPrompt(brief) }],
+    system: systemPrompt(count),
+    messages: [{ role: "user", content: userPrompt(brief, direction) }],
   });
 
   if (!response.parsed_output) {
@@ -56,7 +50,7 @@ async function withAnthropic(brief: string, angle: AngleId, count: number): Prom
   return response.parsed_output;
 }
 
-async function withOpenAI(brief: string, angle: AngleId, count: number): Promise<ParsedCarousel> {
+async function withOpenAI(brief: string, direction: string | null, count: number): Promise<ParsedCarousel> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("Defina OPENAI_API_KEY no .env.local.");
   }
@@ -67,8 +61,8 @@ async function withOpenAI(brief: string, angle: AngleId, count: number): Promise
   const response = await client.responses.parse({
     model,
     input: [
-      { role: "system", content: systemPrompt(angle, count) },
-      { role: "user", content: userPrompt(brief) },
+      { role: "system", content: systemPrompt(count) },
+      { role: "user", content: userPrompt(brief, direction) },
     ],
     text: { format: zodTextFormat(CarouselSchema, "carousel") },
   });
@@ -92,10 +86,10 @@ async function withOpenAI(brief: string, angle: AngleId, count: number): Promise
 
 export async function runProvider(
   brief: string,
-  angle: AngleId,
+  direction: string | null,
   count: number,
 ): Promise<ParsedCarousel> {
   return pickProvider() === "openai"
-    ? withOpenAI(brief, angle, count)
-    : withAnthropic(brief, angle, count);
+    ? withOpenAI(brief, direction, count)
+    : withAnthropic(brief, direction, count);
 }

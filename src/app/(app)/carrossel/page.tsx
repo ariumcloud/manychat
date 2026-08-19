@@ -33,7 +33,7 @@ type Carousel = {
   ig_media_id?: string | null;
 };
 
-type Angle = { id: string; label: string; hint: string };
+type Preset = { label: string; text: string };
 
 const EXEMPLO =
   "Perguntei pro ChatGPT quem é o melhor advogado de Natal. Rodei 10 vezes em janelas anônimas diferentes. Meu cliente apareceu 0 vezes — e três escritórios menores que o dele apareceram em todas. Descobri que o que decide não é o site, é quantas vezes o nome aparece citado em portais locais.";
@@ -47,8 +47,8 @@ export default function CarrosselPage() {
   const [error, setError] = useState<string | null>(null);
   const [provider, setProvider] = useState<string | null>(null);
   const [ready, setReady] = useState(true);
-  const [angles, setAngles] = useState<Angle[]>([]);
-  const [angle, setAngle] = useState("teste");
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [direction, setDirection] = useState("");
   const [slideCount, setSlideCount] = useState(8);
   const [range, setRange] = useState({ min: 4, max: 10 });
   const [version, setVersion] = useState(0);
@@ -62,7 +62,7 @@ export default function CarrosselPage() {
         provider: string;
         ready: boolean;
         slideRange: { min: number; max: number };
-        angles: Angle[];
+        presets: Preset[];
       }>("/api/carousels");
       if (cancelled) return;
       if (ok) {
@@ -70,7 +70,7 @@ export default function CarrosselPage() {
         setProvider(data?.provider ?? null);
         setReady(data?.ready ?? false);
         if (data?.slideRange) setRange(data.slideRange);
-        if (data?.angles) setAngles(data.angles);
+        if (data?.presets) setPresets(data.presets);
       }
       setError(ok ? null : err);
       setLoading(false);
@@ -88,7 +88,7 @@ export default function CarrosselPage() {
     const { ok, data, error: err } = await fetchJson<{ carousel: Carousel }>("/api/carousels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brief, slide_count: slideCount, angle }),
+      body: JSON.stringify({ brief, slide_count: slideCount, direction }),
     });
 
     if (ok && data) {
@@ -136,27 +136,8 @@ export default function CarrosselPage() {
         )}
 
         <section className="card p-5">
-          <span className="label">Que tipo de post</span>
-          <div className="mb-4 grid gap-2 sm:grid-cols-2">
-            {angles.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => setAngle(a.id)}
-                className={
-                  "rounded-lg border px-3 py-2.5 text-left transition-colors " +
-                  (angle === a.id
-                    ? "border-[var(--accent)] bg-[var(--accent-soft)]"
-                    : "border-[var(--border)] bg-[var(--bg)] hover:border-[var(--border-strong)]")
-                }
-              >
-                <span className="block text-sm">{a.label}</span>
-                <span className="mt-0.5 block text-[11px] text-[var(--fg-dim)]">{a.hint}</span>
-              </button>
-            ))}
-          </div>
-
           <label className="label" htmlFor="brief">
-            Sobre o que
+            Sobre o que — o material bruto
           </label>
           <textarea
             id="brief"
@@ -166,6 +147,37 @@ export default function CarrosselPage() {
             value={brief}
             onChange={(e) => setBrief(e.target.value)}
           />
+          <p className="mt-1.5 text-xs text-[var(--fg-dim)]">
+            Os fatos, os números, o que aconteceu. Sem se preocupar com ordem.
+          </p>
+
+          <label className="label mt-5" htmlFor="direction">
+            Como contar <span className="font-normal text-[var(--fg-dim)]">— opcional</span>
+          </label>
+          <textarea
+            id="direction"
+            rows={3}
+            className="input resize-none"
+            placeholder="Ex: começa pelo erro que quase todo mundo comete, e deixa o número pro final."
+            value={direction}
+            onChange={(e) => setDirection(e.target.value)}
+          />
+
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {presets.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => setDirection(p.text)}
+                className="chip transition-colors hover:border-[var(--accent)] hover:text-[var(--fg)]"
+                title={p.text}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-[var(--fg-dim)]">
+            Os atalhos só preenchem o campo — edita à vontade. Vazio, eu escolho o formato.
+          </p>
 
           <div className="mt-4">
             <span className="label">Quantos slides</span>

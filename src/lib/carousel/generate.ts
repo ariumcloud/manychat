@@ -1,16 +1,16 @@
 import type { Slide } from "./types";
-import { clampSlideCount, type AngleId } from "./prompt";
+import { clampSlideCount } from "./prompt";
 import { runProvider } from "./providers";
 
 export type GeneratedCarousel = { title: string; slides: Slide[] };
 
 export async function generateCarousel(
   brief: string,
-  angle: AngleId,
+  direction: string | null,
   slideCount: number,
 ): Promise<GeneratedCarousel> {
   const count = clampSlideCount(slideCount);
-  const parsed = await runProvider(brief, angle, count);
+  const parsed = await runProvider(brief, direction, count);
 
   // Renumera na marra: a ordem do array é a verdade, não o campo n que o modelo
   // escreveu — modelo às vezes pula ou repete número.
