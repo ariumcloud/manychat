@@ -33,6 +33,8 @@ type Carousel = {
   ig_media_id?: string | null;
 };
 
+type Angle = { id: string; label: string; hint: string };
+
 const EXEMPLO =
   "Perguntei pro ChatGPT quem é o melhor advogado de Natal. Rodei 10 vezes em janelas anônimas diferentes. Meu cliente apareceu 0 vezes — e três escritórios menores que o dele apareceram em todas. Descobri que o que decide não é o site, é quantas vezes o nome aparece citado em portais locais.";
 
@@ -45,6 +47,8 @@ export default function CarrosselPage() {
   const [error, setError] = useState<string | null>(null);
   const [provider, setProvider] = useState<string | null>(null);
   const [ready, setReady] = useState(true);
+  const [angles, setAngles] = useState<Angle[]>([]);
+  const [angle, setAngle] = useState("teste");
   const [slideCount, setSlideCount] = useState(8);
   const [range, setRange] = useState({ min: 4, max: 10 });
   const [version, setVersion] = useState(0);
@@ -58,6 +62,7 @@ export default function CarrosselPage() {
         provider: string;
         ready: boolean;
         slideRange: { min: number; max: number };
+        angles: Angle[];
       }>("/api/carousels");
       if (cancelled) return;
       if (ok) {
@@ -65,6 +70,7 @@ export default function CarrosselPage() {
         setProvider(data?.provider ?? null);
         setReady(data?.ready ?? false);
         if (data?.slideRange) setRange(data.slideRange);
+        if (data?.angles) setAngles(data.angles);
       }
       setError(ok ? null : err);
       setLoading(false);
@@ -82,7 +88,7 @@ export default function CarrosselPage() {
     const { ok, data, error: err } = await fetchJson<{ carousel: Carousel }>("/api/carousels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brief, slide_count: slideCount }),
+      body: JSON.stringify({ brief, slide_count: slideCount, angle }),
     });
 
     if (ok && data) {
@@ -95,6 +101,22 @@ export default function CarrosselPage() {
     setGenerating(false);
   }
 
+  async function remove(c: Carousel) {
+    const aviso = c.published_at
+      ? "Apagar o carrossel do painel? O post no Instagram continua no ar — isto só limpa daqui."
+      : "Apagar este carrossel?";
+    if (!confirm(aviso)) return;
+
+    const snapshot = list;
+    setList((prev) => prev.filter((x) => x.id !== c.id));
+
+    const { ok, error: err } = await fetchJson(`/api/carousels/${c.id}`, { method: "DELETE" });
+    if (!ok) {
+      setList(snapshot);
+      setError(err ?? "Não consegui apagar.");
+    }
+  }
+
   if (active) {
     return <Editor carousel={active} onBack={() => setActive(null)} />;
   }
@@ -103,7 +125,7 @@ export default function CarrosselPage() {
     <>
       <PageHeader
         title="Carrosséis"
-        subtitle="Descreva um teste que você fez de verdade. Eu escrevo os 8 slides e digo qual print capturar."
+        subtitle="Descreva a ideia. Eu escrevo os slides e digo qual print capturar quando fizer sentido."
       />
 
       <div className="max-w-3xl space-y-6 p-8">
@@ -114,8 +136,27 @@ export default function CarrosselPage() {
         )}
 
         <section className="card p-5">
+          <span className="label">Que tipo de post</span>
+          <div className="mb-4 grid gap-2 sm:grid-cols-2">
+            {angles.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => setAngle(a.id)}
+                className={
+                  "rounded-lg border px-3 py-2.5 text-left transition-colors " +
+                  (angle === a.id
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                    : "border-[var(--border)] bg-[var(--bg)] hover:border-[var(--border-strong)]")
+                }
+              >
+                <span className="block text-sm">{a.label}</span>
+                <span className="mt-0.5 block text-[11px] text-[var(--fg-dim)]">{a.hint}</span>
+              </button>
+            ))}
+          </div>
+
           <label className="label" htmlFor="brief">
-            O que você testou?
+            Sobre o que
           </label>
           <textarea
             id="brief"
@@ -145,7 +186,7 @@ export default function CarrosselPage() {
               ))}
             </div>
             <p className="mt-2 text-xs text-[var(--fg-dim)]">
-              Capa, prova e fechamento são fixos — o que muda é quantos passos cabem no meio.
+              A capa e o fechamento são fixos — o que muda é quanto cabe no miolo.
             </p>
           </div>
 
@@ -181,8 +222,8 @@ export default function CarrosselPage() {
           )}
 
           <p className="mt-2 text-xs leading-relaxed text-[var(--fg-dim)]">
-            Quanto mais específico o número, melhor o carrossel. &ldquo;Rodei 10 vezes, apareceu
-            0&rdquo; funciona; &ldquo;testei e não deu certo&rdquo; não.
+            Quanto mais concreto, melhor: nome da ferramenta, o clique exato, o erro literal da
+            tela. Se tiver número, ele entra — mas nunca é inventado.
           </p>
         </section>
 
@@ -198,22 +239,39 @@ export default function CarrosselPage() {
           ) : (
             <div className="space-y-2">
               {list.map((c) => (
-                <button
+                <div
                   key={c.id}
-                  onClick={() => setActive(c)}
-                  className="card flex w-full items-center gap-3 p-4 text-left transition-colors hover:border-[var(--border-strong)]"
+                  className="card flex items-center gap-3 p-4 transition-colors hover:border-[var(--border-strong)]"
                 >
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
-                    <Sparkles size={16} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{c.title ?? "sem título"}</p>
-                    <p className="truncate text-xs text-[var(--fg-muted)]">
-                      {c.slides.filter((s) => s.image_url).length}/{c.slides.length} prints
-                    </p>
-                  </div>
-                  <span className="text-xs text-[var(--fg-dim)]">{timeAgo(c.created_at)}</span>
-                </button>
+                  <button
+                    onClick={() => setActive(c)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
+                      <Sparkles size={16} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{c.title ?? "sem título"}</p>
+                      <p className="truncate text-xs text-[var(--fg-muted)]">
+                        {c.slides.filter((s) => s.image_url).length}/{c.slides.length} prints
+                        {c.published_at ? " · publicado" : ""}
+                      </p>
+                    </div>
+                  </button>
+
+                  <span className="shrink-0 text-xs text-[var(--fg-dim)]">
+                    {timeAgo(c.created_at)}
+                  </span>
+
+                  <button
+                    onClick={() => remove(c)}
+                    className="btn btn-danger shrink-0 px-2"
+                    aria-label="Apagar carrossel"
+                    title="Apagar carrossel"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
               ))}
             </div>
           )}

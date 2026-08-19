@@ -4,7 +4,13 @@ import { getAccount } from "@/lib/repo";
 import { withApi } from "@/lib/api";
 import { generateCarousel } from "@/lib/carousel/generate";
 import { pickProvider, providerLabel } from "@/lib/carousel/providers";
-import { clampSlideCount, MAX_SLIDES, MIN_SLIDES } from "@/lib/carousel/prompt";
+import {
+  ANGLES,
+  clampSlideCount,
+  isAngle,
+  MAX_SLIDES,
+  MIN_SLIDES,
+} from "@/lib/carousel/prompt";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,25 +34,31 @@ async function getHandler() {
     // Sem chave nenhuma o botão de gerar precisa avisar antes, não falhar depois.
     ready: provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : Boolean(process.env.ANTHROPIC_API_KEY),
     slideRange: { min: MIN_SLIDES, max: MAX_SLIDES },
+    angles: ANGLES,
   });
 }
 
-/** Recebe o relato do teste e devolve o roteiro dos 8 slides já gravado. */
+/** Recebe a ideia e devolve o roteiro dos slides já gravado. */
 async function postHandler(req: Request) {
   const account = await getAccount();
-  const { brief, slide_count } = (await req.json().catch(() => ({}))) as {
+  const { brief, slide_count, angle } = (await req.json().catch(() => ({}))) as {
     brief?: string;
     slide_count?: number;
+    angle?: string;
   };
 
   if (!brief?.trim() || brief.trim().length < 30) {
     return NextResponse.json(
-      { error: "Descreva o teste com mais detalhe — o que você fez, quantas vezes e o que deu." },
+      { error: "Descreva a ideia com mais detalhe — quanto mais concreto, melhor o carrossel." },
       { status: 400 },
     );
   }
 
-  const { title, slides } = await generateCarousel(brief.trim(), clampSlideCount(slide_count));
+  const { title, slides } = await generateCarousel(
+    brief.trim(),
+    isAngle(angle) ? angle : "teste",
+    clampSlideCount(slide_count),
+  );
 
   const { data, error } = await db()
     .from("mc_carousels")
