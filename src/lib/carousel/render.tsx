@@ -81,7 +81,10 @@ export async function renderSlide(carousel: Carousel, index: number): Promise<Im
   const blocks = paragraphs(slide.text);
 
   // Slide com print sobra menos espaço para texto — encolhe a fonte.
-  const fontSize = slide.image_url ? 40 : blocks.join(" ").length > 240 ? 42 : 50;
+  // Escala pela densidade: texto curto fica grande e ocupa espaço; texto longo
+  // encolhe para caber. Com o conteúdo mais cheio agora, os degraus mudaram.
+  const chars = blocks.join(" ").length;
+  const fontSize = slide.image_url ? 38 : chars > 360 ? 42 : chars > 200 ? 48 : 56;
 
   return new ImageResponse(
     (
@@ -91,9 +94,11 @@ export async function renderSlide(carousel: Carousel, index: number): Promise<Im
           height: SLIDE_HEIGHT,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "center",
+          // Ancorado a partir do topo, como um tweet real. Centralizar deixava
+          // o texto boiando no meio de um vazio enorme — cara de IA.
+          justifyContent: "flex-start",
           background: "#ffffff",
-          padding: 72,
+          padding: "128px 76px 96px",
           fontFamily: "Inter",
         }}
       >

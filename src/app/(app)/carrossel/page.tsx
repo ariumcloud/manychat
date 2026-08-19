@@ -332,7 +332,8 @@ function Editor({ carousel, onBack }: { carousel: Carousel; onBack: () => void }
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ caption, confirm: true }),
+        // republish libera o post quando o carrossel já foi publicado antes.
+        body: JSON.stringify({ caption, confirm: true, republish: Boolean(publishedId) }),
       },
     );
 
@@ -361,13 +362,10 @@ function Editor({ carousel, onBack }: { carousel: Carousel; onBack: () => void }
             <a className="btn btn-ghost" href={`/api/carousels/${carousel.id}/zip`}>
               <Download size={15} /> ZIP
             </a>
-            {publishedId ? (
-              <span className="chip chip-ok">publicado</span>
-            ) : (
-              <button className="btn btn-primary" onClick={() => setShowPublish(true)}>
-                <Send size={15} /> Publicar
-              </button>
-            )}
+            {publishedId && <span className="chip chip-ok">publicado</span>}
+            <button className="btn btn-primary" onClick={() => setShowPublish(true)}>
+              <Send size={15} /> {publishedId ? "Publicar de novo" : "Publicar"}
+            </button>
           </div>
         }
       />
@@ -388,9 +386,13 @@ function Editor({ carousel, onBack }: { carousel: Carousel; onBack: () => void }
               className="card w-full max-w-lg p-6"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-sm font-semibold">Publicar no Instagram</h2>
+              <h2 className="text-sm font-semibold">
+                {publishedId ? "Publicar de novo" : "Publicar no Instagram"}
+              </h2>
               <p className="mt-2 text-sm leading-relaxed text-[var(--fg-muted)]">
-                Isto posta {slides.length} imagens no feed de verdade, agora.{" "}
+                {publishedId
+                  ? "Este carrossel já foi publicado antes. Isto cria um post NOVO no feed com as imagens atuais — o post anterior não é afetado."
+                  : `Isto posta ${slides.length} imagens no feed de verdade, agora.`}{" "}
                 <strong className="text-[var(--fg)]">Não dá pra desfazer pelo painel</strong> — só
                 apagando pelo app do Instagram.
               </p>

@@ -61,13 +61,14 @@ export function systemPrompt(count: number): string {
   const last = count - 1;
   const middle =
     last <= first
-      ? `- Slide ${first}: o miolo, com a ideia mais útil que sobrou.`
-      : `- Slides ${first} a ${last}: uma ideia por slide, na ordem que faz sentido para quem
-  vai executar. Nada de repetir a mesma ideia com outras palavras.`;
+      ? `- Slide ${first}: o miolo, com a ideia mais útil que sobrou — desenvolvida, não em uma frase só.`
+      : `- Slides ${first} a ${last}: uma ideia por slide, DESENVOLVIDA em 2 a 4 frases que se
+  conectam. Diga a ideia, e depois por que ela importa ou um detalhe concreto
+  dela. Nada de repetir a mesma ideia com outras palavras.`;
 
   return `Você escreve carrosséis de Instagram no formato "card de tweet": fundo branco,
-texto curto, sem design. O nicho é marketing, automação e IA aplicada — quem lê
-executa, não é iniciante absoluto.
+sem design. O nicho é marketing, automação e IA aplicada — quem lê executa, não
+é iniciante absoluto.
 
 O que faz esses carrosséis performarem não é estética. É ser específico e
 verdadeiro onde todo mundo é vago.
@@ -81,11 +82,17 @@ REGRAS INEGOCIÁVEIS
    Quando o slide não precisar de print, deixe screenshot_hint vazio.
 3. Escreva na primeira pessoa. Nunca conselho genérico, nunca "você precisa
    entender que".
-4. Frases curtas. Quebra de linha entre ideias. Quem rola o feed lê em 2 segundos.
+4. ESCREVA COMO UM TWEET REAL: 2 a 4 frases que formam um raciocínio, não uma
+   frase solta por linha. Use quebra de linha só para separar ideias DIFERENTES,
+   nunca depois de cada frase curta. Uma frase por linha deixa cara de robô e
+   é o erro mais comum — evite. Um slide bom parece uma pessoa pensando em voz
+   alta, não uma lista de tópicos.
 5. Use **negrito** SOMENTE em número ou no termo mais importante do slide.
    No máximo duas marcações por slide.
 6. Nada de emoji, hashtag, "dica de ouro", "swipe", "bora?" ou linguagem de coach.
-7. Cada slide tem no máximo 320 caracteres. O slide 1 tem no máximo 200.
+7. Densidade: cada slide entre 200 e 420 caracteres — cheio o bastante para não
+   boiar no vazio. O slide 1 pode ser mais curto (até 240), mas com peso. Slide
+   raso e picado é o que estraga o carrossel.
 8. Prefira o concreto: nome da ferramenta, o clique exato, o erro literal da
    tela. "Configure a integração" é ruim; "cole a URL em Webhooks → Instagram" é bom.
 
@@ -93,9 +100,11 @@ ESTRUTURA DOS ${count} SLIDES
 
 - Slide 1 (capa): a coisa mais forte que existe no material. Precisa dar vontade
   de arrastar sem prometer nada vago.
-- Slide 2: o que sustenta a capa — a prova, o dado, ou o ponto mais concreto.
+- Slide 2: o que sustenta a capa — a prova, o dado, ou o ponto mais concreto,
+  já desenvolvido em algumas frases.
 ${middle}
-- Slide ${count} (fechamento): o que a pessoa faz HOJE. Uma ação, não três.
+- Slide ${count} (fechamento): o que a pessoa faz HOJE. Uma ação clara, com o
+  contexto que faz ela querer fazer agora.
 
 Com menos slides, corte do miolo — nunca corte a capa nem o fechamento.
 

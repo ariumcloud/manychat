@@ -28,9 +28,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  */
 async function postHandler(req: Request, { params }: Params) {
   const { id } = await params;
-  const { caption, confirm } = (await req.json().catch(() => ({}))) as {
+  const { caption, confirm, republish } = (await req.json().catch(() => ({}))) as {
     caption?: string;
     confirm?: boolean;
+    republish?: boolean;
   };
 
   if (confirm !== true) {
@@ -46,9 +47,14 @@ async function postHandler(req: Request, { params }: Params) {
 
   const carousel = data as Carousel;
 
-  if (carousel.published_at) {
+  // Já publicado: só republica com o flag explícito. Cobre o caso de ter
+  // apagado o post do feed e querer postar de novo.
+  if (carousel.published_at && republish !== true) {
     return NextResponse.json(
-      { error: "Este carrossel já foi publicado. Duplicar postagem não é reversível." },
+      {
+        error: "Este carrossel já foi publicado antes.",
+        alreadyPublished: true,
+      },
       { status: 409 },
     );
   }
