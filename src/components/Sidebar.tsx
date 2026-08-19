@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Contact,
+  FlaskConical,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -19,6 +20,7 @@ const NAV = [
   { href: "/fluxos", label: "Fluxos", icon: Workflow },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/contatos", label: "Contatos", icon: Contact },
+  { href: "/testes-api", label: "Testes de API", icon: FlaskConical },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
