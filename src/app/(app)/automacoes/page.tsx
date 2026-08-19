@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   AtSign,
   Loader2,
@@ -38,9 +39,20 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 export default function AutomacoesPage() {
+  return (
+    <Suspense>
+      <Automacoes />
+    </Suspense>
+  );
+}
+
+function Automacoes() {
+  // A tela de Reels manda ?media=<id> pra já abrir o formulário naquele post.
+  const mediaFromUrl = useSearchParams().get("media");
+
   const [triggers, setTriggers] = useState<Trigger[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(Boolean(mediaFromUrl));
   const [error, setError] = useState<string | null>(null);
   // Incrementar isto refaz a busca — evita um load() solto que o React
   // reclamaria de chamar dentro do efeito.
@@ -129,6 +141,7 @@ export default function AutomacoesPage() {
 
       {creating && (
         <CreateDrawer
+          initialMediaId={mediaFromUrl}
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -241,7 +254,15 @@ function TriggerCard({
   );
 }
 
-function CreateDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateDrawer({
+  onClose,
+  onCreated,
+  initialMediaId,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+  initialMediaId?: string | null;
+}) {
   const [kind, setKind] = useState("comment_keyword");
   const [keywords, setKeywords] = useState("");
   const [matchType, setMatchType] = useState("contains");
@@ -251,7 +272,7 @@ function CreateDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: 
   const [publicReply, setPublicReply] = useState(true);
   const [publicReplyText, setPublicReplyText] = useState("Te mandei no direct! 📩");
   const [onlyFirstTime, setOnlyFirstTime] = useState(false);
-  const [mediaId, setMediaId] = useState("");
+  const [mediaId, setMediaId] = useState(initialMediaId ?? "");
   const [media, setMedia] = useState<Media[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

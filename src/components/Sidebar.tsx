@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Clapperboard,
   Contact,
   FlaskConical,
   Inbox,
@@ -18,6 +19,7 @@ const NAV = [
   { href: "/", label: "Visão geral", icon: LayoutDashboard },
   { href: "/automacoes", label: "Automações", icon: MessageSquareShare },
   { href: "/fluxos", label: "Fluxos", icon: Workflow },
+  { href: "/reels", label: "Reels", icon: Clapperboard },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/contatos", label: "Contatos", icon: Contact },
   { href: "/testes-api", label: "Testes de API", icon: FlaskConical },
