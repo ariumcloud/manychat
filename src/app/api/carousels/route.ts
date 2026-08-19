@@ -4,6 +4,7 @@ import { getAccount } from "@/lib/repo";
 import { withApi } from "@/lib/api";
 import { generateCarousel } from "@/lib/carousel/generate";
 import { pickProvider, providerLabel } from "@/lib/carousel/providers";
+import { clampSlideCount, MAX_SLIDES, MIN_SLIDES } from "@/lib/carousel/prompt";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,13 +27,17 @@ async function getHandler() {
     provider: providerLabel(provider),
     // Sem chave nenhuma o botão de gerar precisa avisar antes, não falhar depois.
     ready: provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : Boolean(process.env.ANTHROPIC_API_KEY),
+    slideRange: { min: MIN_SLIDES, max: MAX_SLIDES },
   });
 }
 
 /** Recebe o relato do teste e devolve o roteiro dos 8 slides já gravado. */
 async function postHandler(req: Request) {
   const account = await getAccount();
-  const { brief } = (await req.json().catch(() => ({}))) as { brief?: string };
+  const { brief, slide_count } = (await req.json().catch(() => ({}))) as {
+    brief?: string;
+    slide_count?: number;
+  };
 
   if (!brief?.trim() || brief.trim().length < 30) {
     return NextResponse.json(
@@ -41,7 +46,7 @@ async function postHandler(req: Request) {
     );
   }
 
-  const { title, slides } = await generateCarousel(brief.trim());
+  const { title, slides } = await generateCarousel(brief.trim(), clampSlideCount(slide_count));
 
   const { data, error } = await db()
     .from("mc_carousels")

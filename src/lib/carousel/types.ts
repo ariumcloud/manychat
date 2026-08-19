@@ -23,8 +23,6 @@ export type Carousel = {
   updated_at: string;
 };
 
-export const SLIDE_COUNT = 8;
-
 /** 4:5 — o formato que ocupa mais tela no feed do Instagram. */
 export const SLIDE_WIDTH = 1080;
 export const SLIDE_HEIGHT = 1350;

@@ -42,6 +42,8 @@ export default function CarrosselPage() {
   const [error, setError] = useState<string | null>(null);
   const [provider, setProvider] = useState<string | null>(null);
   const [ready, setReady] = useState(true);
+  const [slideCount, setSlideCount] = useState(8);
+  const [range, setRange] = useState({ min: 4, max: 10 });
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -52,12 +54,14 @@ export default function CarrosselPage() {
         carousels: Carousel[];
         provider: string;
         ready: boolean;
+        slideRange: { min: number; max: number };
       }>("/api/carousels");
       if (cancelled) return;
       if (ok) {
         setList(data?.carousels ?? []);
         setProvider(data?.provider ?? null);
         setReady(data?.ready ?? false);
+        if (data?.slideRange) setRange(data.slideRange);
       }
       setError(ok ? null : err);
       setLoading(false);
@@ -75,7 +79,7 @@ export default function CarrosselPage() {
     const { ok, data, error: err } = await fetchJson<{ carousel: Carousel }>("/api/carousels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brief }),
+      body: JSON.stringify({ brief, slide_count: slideCount }),
     });
 
     if (ok && data) {
@@ -119,7 +123,30 @@ export default function CarrosselPage() {
             onChange={(e) => setBrief(e.target.value)}
           />
 
-          <div className="mt-3 flex items-center justify-between gap-4">
+          <div className="mt-4">
+            <span className="label">Quantos slides</span>
+            <div className="flex flex-wrap gap-1.5">
+              {Array.from({ length: range.max - range.min + 1 }, (_, i) => range.min + i).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setSlideCount(n)}
+                  className={
+                    "h-9 w-9 rounded-lg text-sm tabular-nums transition-colors " +
+                    (slideCount === n
+                      ? "bg-[var(--accent)] text-white"
+                      : "bg-[var(--bg)] text-[var(--fg-muted)] hover:text-[var(--fg)]")
+                  }
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-[var(--fg-dim)]">
+              Capa, prova e fechamento são fixos — o que muda é quantos passos cabem no meio.
+            </p>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-4">
             <button
               className="text-xs text-[var(--accent)] hover:underline"
               onClick={() => setBrief(EXEMPLO)}
