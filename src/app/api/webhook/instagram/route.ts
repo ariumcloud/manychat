@@ -1,0 +1,326 @@
+import { NextResponse, after } from "next/server";
+import { env } from "@/lib/env";
+import { verifySignature } from "@/lib/meta/verify";
+import type { ChangeEvent, MessagingEvent, WebhookBody } from "@/lib/meta/types";
+import { db } from "@/lib/supabase";
+import { getAccount, getOrCreateConversation, recordMessage, upsertContact } from "@/lib/repo";
+import { pickTrigger } from "@/lib/flow/matcher";
+import { runFlow } from "@/lib/flow/engine";
+import type { Flow, Trigger, TriggerKind } from "@/lib/flow/types";
+import { replyToComment } from "@/lib/meta/client";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+/**
+ * Sem estas variaveis o webhook nao tem como funcionar. Melhor responder um erro
+ * legivel do que um 500 mudo quando o Meta bater aqui.
+ */
+function missingConfig(): string[] {
+  const needed = [
+    "META_APP_SECRET",
+    "META_VERIFY_TOKEN",
+    "IG_ACCESS_TOKEN",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+  ];
+  return needed.filter((name) => !process.env[name]);
+}
+
+/**
+ * GET = handshake. O Meta chama isto uma vez quando voce salva a URL do webhook
+ * no painel e espera receber o hub.challenge de volta em texto puro.
+ */
+export async function GET(req: Request) {
+  const missing = missingConfig();
+  if (missing.length) {
+    return new Response(`Faltam variaveis de ambiente: ${missing.join(", ")}`, { status: 503 });
+  }
+
+  const url = new URL(req.url);
+  const mode = url.searchParams.get("hub.mode");
+  const token = url.searchParams.get("hub.verify_token");
+  const challenge = url.searchParams.get("hub.challenge");
+
+  if (mode === "subscribe" && token === env.metaVerifyToken && challenge) {
+    return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain" } });
+  }
+  return new Response("Forbidden", { status: 403 });
+}
+
+/**
+ * POST = eventos. Responde 200 na hora e processa depois (after), porque o Meta
+ * reentrega o evento se demorarmos e isso viraria mensagem duplicada.
+ */
+export async function POST(req: Request) {
+  const missing = missingConfig();
+  if (missing.length) {
+    console.error("[webhook] configuracao incompleta:", missing.join(", "));
+    return new Response(`Faltam variaveis de ambiente: ${missing.join(", ")}`, { status: 503 });
+  }
+
+  const raw = await req.text();
+
+  if (!verifySignature(raw, req.headers.get("x-hub-signature-256"))) {
+    return new Response("Assinatura invalida", { status: 401 });
+  }
+
+  let body: WebhookBody;
+  try {
+    body = JSON.parse(raw) as WebhookBody;
+  } catch {
+    return new Response("JSON invalido", { status: 400 });
+  }
+
+  after(async () => {
+    try {
+      await processWebhook(body);
+    } catch (err) {
+      console.error("[webhook] falha ao processar:", err);
+    }
+  });
+
+  return NextResponse.json({ received: true });
+}
+
+// ---------------------------------------------------------------------------
+
+async function processWebhook(body: WebhookBody) {
+  const supabase = db();
+
+  for (const entry of body.entry ?? []) {
+    for (const event of entry.messaging ?? []) {
+      const key = event.message?.mid ?? `${entry.id}:${event.timestamp}:msg`;
+      if (await alreadySeen(key, body.object, event)) continue;
+      await handleMessaging(event).catch((err) => logFailure(key, err));
+    }
+
+    for (const change of entry.changes ?? []) {
+      const key = change.value?.id ?? `${entry.id}:${entry.time}:${change.field}`;
+      if (await alreadySeen(key, body.object, change)) continue;
+      await handleChange(change).catch((err) => logFailure(key, err));
+    }
+  }
+
+  async function alreadySeen(dedupeKey: string, object: string | undefined, payload: unknown) {
+    const { error } = await supabase
+      .from("webhook_events")
+      .insert({ dedupe_key: dedupeKey, object: object ?? null, payload: payload as object });
+    // 23505 = chave duplicada, ou seja, o Meta reentregou. Ja tratamos antes.
+    return Boolean(error && error.code === "23505");
+  }
+
+  async function logFailure(dedupeKey: string, err: unknown) {
+    console.error("[webhook]", dedupeKey, err);
+    await supabase
+      .from("webhook_events")
+      .update({ error: err instanceof Error ? err.message : String(err) })
+      .eq("dedupe_key", dedupeKey);
+  }
+}
+
+async function loadTriggers(accountId: string, kind: TriggerKind): Promise<Trigger[]> {
+  const { data } = await db()
+    .from("triggers")
+    .select("*")
+    .eq("account_id", accountId)
+    .eq("kind", kind)
+    .eq("enabled", true);
+  return (data ?? []) as Trigger[];
+}
+
+async function loadFlow(flowId: string): Promise<Flow | null> {
+  const { data } = await db().from("flows").select("*").eq("id", flowId).maybeSingle();
+  if (!data) return null;
+  if (data.status !== "live") return null;
+  return data as Flow;
+}
+
+// --- DMs -------------------------------------------------------------------
+
+async function handleMessaging(event: MessagingEvent) {
+  // Echo = mensagem que NOS enviamos, refletida de volta. Ignorar.
+  if (event.message?.is_echo || event.message?.is_deleted) return;
+  if (event.read || event.reaction) return;
+
+  const igsid = event.sender?.id;
+  if (!igsid) return;
+
+  const account = await getAccount();
+  // Se o remetente e a propria conta, nao e uma DM recebida.
+  if (igsid === account.ig_user_id) return;
+
+  const contact = await upsertContact(account.id, igsid);
+  const conversation = await getOrCreateConversation(account.id, contact.id);
+
+  const text = event.message?.text ?? event.postback?.title ?? "";
+  const payload = event.message?.quick_reply?.payload ?? event.postback?.payload ?? null;
+  const isStoryReply = Boolean(event.message?.reply_to?.story);
+
+  await recordMessage({
+    accountId: account.id,
+    conversationId: conversation.id as string,
+    direction: "in",
+    sender: "contact",
+    mid: event.message?.mid ?? event.postback?.mid ?? null,
+    type: isStoryReply ? "story_reply" : event.message?.attachments?.length ? "attachment" : "text",
+    text: text || null,
+    attachments: event.message?.attachments ?? null,
+    payload: payload ? { payload } : null,
+  });
+
+  // Quick reply / botao clicado carrega o payload "flow:<id>" para continuar.
+  if (payload?.startsWith("flow:")) {
+    const flow = await loadFlow(payload.slice(5));
+    if (flow) {
+      await runFlow(flow, {
+        accountId: account.id,
+        contactId: contact.id,
+        igsid,
+        conversationId: conversation.id as string,
+        lastText: text,
+        source: "dm",
+        sourceRef: event.message?.mid ?? null,
+      });
+      return;
+    }
+  }
+
+  const kinds: TriggerKind[] = isStoryReply
+    ? ["story_reply", "dm_keyword", "default_reply"]
+    : ["dm_keyword", "default_reply"];
+
+  for (const kind of kinds) {
+    const triggers = await loadTriggers(account.id, kind);
+    if (!triggers.length) continue;
+
+    const chosen =
+      kind === "default_reply"
+        ? triggers.sort((a, b) => b.priority - a.priority)[0]
+        : pickTrigger(triggers, text);
+    if (!chosen) continue;
+
+    const flow = await loadFlow(chosen.flow_id);
+    if (!flow) continue;
+
+    await runFlow(flow, {
+      accountId: account.id,
+      contactId: contact.id,
+      igsid,
+      conversationId: conversation.id as string,
+      lastText: text,
+      source: isStoryReply ? "story" : "dm",
+      sourceRef: event.message?.mid ?? null,
+      triggerId: chosen.id,
+    });
+    return;
+  }
+}
+
+// --- Comentarios -> DM -----------------------------------------------------
+
+async function handleChange(change: ChangeEvent) {
+  if (change.field !== "comments" && change.field !== "live_comments") return;
+
+  const value = change.value;
+  const commentId = value?.id;
+  if (!commentId) return;
+
+  const account = await getAccount();
+
+  // Nosso proprio comentario (inclusive as respostas que o bot posta). Ignorar,
+  // senao entramos em loop respondendo a nos mesmos.
+  if (value?.from?.id && value.from.id === account.ig_user_id) return;
+
+  const supabase = db();
+  const text = value?.text ?? "";
+  const mediaId = value?.media?.id ?? null;
+
+  const { data: recorded, error: insertError } = await supabase
+    .from("comment_events")
+    .insert({
+      account_id: account.id,
+      comment_id: commentId,
+      parent_comment_id: value?.parent_id ?? null,
+      media_id: mediaId,
+      from_igsid: value?.from?.id ?? null,
+      from_username: value?.from?.username ?? null,
+      text,
+    })
+    .select()
+    .single();
+
+  if (insertError) {
+    if (insertError.code === "23505") return; // comentario ja processado
+    throw new Error(insertError.message);
+  }
+
+  const triggers = await loadTriggers(account.id, "comment_keyword");
+  const chosen = pickTrigger(triggers, text, { mediaId });
+  if (!chosen) return;
+
+  await supabase
+    .from("comment_events")
+    .update({ matched_trigger_id: chosen.id })
+    .eq("id", recorded.id);
+
+  // Resposta publica embaixo do comentario (opcional, sorteia entre as variacoes
+  // pra nao ficar obvio que e bot).
+  if (chosen.public_reply_enabled && chosen.public_reply_texts.length) {
+    const pick =
+      chosen.public_reply_texts[Math.floor(Math.random() * chosen.public_reply_texts.length)];
+    try {
+      await replyToComment(commentId, pick);
+      await supabase.from("comment_events").update({ public_replied: true }).eq("id", recorded.id);
+    } catch (err) {
+      console.error("[comment] resposta publica falhou:", err);
+    }
+  }
+
+  const flow = await loadFlow(chosen.flow_id);
+  if (!flow) return;
+
+  // "so na primeira vez": nao redispara pra quem ja recebeu esse fluxo.
+  const fromIgsid = value?.from?.id ?? null;
+  let contactId: string;
+  if (fromIgsid) {
+    const contact = await upsertContact(account.id, fromIgsid, {
+      username: value?.from?.username ?? null,
+    });
+    contactId = contact.id;
+
+    if (chosen.only_first_time) {
+      const { count } = await supabase
+        .from("flow_runs")
+        .select("id", { count: "exact", head: true })
+        .eq("flow_id", flow.id)
+        .eq("contact_id", contactId)
+        .eq("status", "done");
+      if ((count ?? 0) > 0) return;
+    }
+  } else {
+    // Sem o ID do autor, criamos o contato depois que a private reply responder
+    // com o recipient_id. Ate la usamos um placeholder ligado ao comentario.
+    const contact = await upsertContact(account.id, `pending:${commentId}`, {
+      username: value?.from?.username ?? null,
+    });
+    contactId = contact.id;
+  }
+
+  const result = await runFlow(flow, {
+    accountId: account.id,
+    contactId,
+    igsid: fromIgsid,
+    commentId,
+    lastText: text,
+    source: "comment",
+    sourceRef: commentId,
+    triggerId: chosen.id,
+  });
+
+  await supabase
+    .from("comment_events")
+    .update({ dm_sent: result.ok, error: result.error ?? null })
+    .eq("id", recorded.id);
+}
