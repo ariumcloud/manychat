@@ -1,6 +1,7 @@
 import { zipSync } from "fflate";
 import { db } from "@/lib/supabase";
 import { withApi } from "@/lib/api";
+import { renderSlidePng } from "@/lib/carousel/render";
 import type { Carousel } from "@/lib/carousel/types";
 
 export const runtime = "nodejs";
@@ -9,32 +10,38 @@ export const maxDuration = 300;
 
 type Params = { params: Promise<{ id: string }> };
 
-/** Renderiza os 8 slides e devolve um ZIP com 01.png … 08.png, na ordem. */
-async function getHandler(req: Request, { params }: Params) {
+/**
+ * Renderiza todos os slides e devolve um ZIP com 01.png, 02.png…, na ordem.
+ *
+ * Renderiza em processo de propósito. Buscar cada slide por HTTP sairia sem
+ * cookie de sessão, o proxy redirecionaria para /login e o ZIP viria cheio de
+ * páginas de login com extensão .png.
+ */
+async function getHandler(_req: Request, { params }: Params) {
   const { id } = await params;
 
   const { data } = await db().from("mc_carousels").select("*").eq("id", id).maybeSingle();
   if (!data) return new Response("Carrossel não encontrado", { status: 404 });
 
   const carousel = data as Carousel;
-  const origin = new URL(req.url).origin;
+  if (!carousel.slides?.length) {
+    return new Response("Este carrossel não tem slides.", { status: 400 });
+  }
 
-  const pngs = await Promise.all(
-    carousel.slides.map(async (slide) => {
-      const res = await fetch(`${origin}/api/carousels/${id}/slide/${slide.n}`, {
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error(`Slide ${slide.n} falhou ao renderizar (HTTP ${res.status}).`);
-      return { n: slide.n, bytes: new Uint8Array(await res.arrayBuffer()) };
-    }),
+  const rendered = await Promise.all(
+    carousel.slides.map(async (slide) => ({
+      n: slide.n,
+      bytes: await renderSlidePng(carousel, slide.n),
+    })),
   );
 
   const files: Record<string, Uint8Array> = {};
-  for (const { n, bytes } of pngs) {
+  for (const { n, bytes } of rendered) {
     files[`${String(n).padStart(2, "0")}.png`] = bytes;
   }
 
-  const zip = zipSync(files, { level: 0 }); // PNG já é comprimido; recomprimir só gasta CPU
+  // PNG já é comprimido; recomprimir só gastaria CPU.
+  const zip = zipSync(files, { level: 0 });
 
   const slug = (carousel.title ?? "carrossel")
     .toLowerCase()
@@ -44,9 +51,10 @@ async function getHandler(req: Request, { params }: Params) {
     .replace(/^-|-$/g, "")
     .slice(0, 50);
 
-  return new Response(zip as unknown as BodyInit, {
+  return new Response(zip, {
     headers: {
       "Content-Type": "application/zip",
+      "Content-Length": String(zip.byteLength),
       "Content-Disposition": `attachment; filename="${slug || "carrossel"}.zip"`,
     },
   });
