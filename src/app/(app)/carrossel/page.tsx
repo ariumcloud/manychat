@@ -36,7 +36,7 @@ type Carousel = {
 type Preset = { label: string; text: string };
 
 const EXEMPLO =
-  "Perguntei pro ChatGPT quem é o melhor advogado de Natal. Rodei 10 vezes em janelas anônimas diferentes. Meu cliente apareceu 0 vezes — e três escritórios menores que o dele apareceram em todas. Descobri que o que decide não é o site, é quantas vezes o nome aparece citado em portais locais.";
+  "Montei uma ferramenta que transforma uma ideia em carrossel pronto. Eu escrevo o que aconteceu, ela devolve os slides no formato card de tweet e renderiza tudo em imagem sozinha — sem Canva, sem template. Este carrossel foi feito por ela. A regra que eu programei: nunca inventar número, só usar o que é real e tem print pra provar.";
 
 export default function CarrosselPage() {
   const [list, setList] = useState<Carousel[]>([]);
