@@ -3,6 +3,7 @@ import { db } from "@/lib/supabase";
 import { getAccount } from "@/lib/repo";
 import { withApi } from "@/lib/api";
 import { generateCarousel } from "@/lib/carousel/generate";
+import { pickProvider, providerLabel } from "@/lib/carousel/providers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,14 @@ async function getHandler() {
     .limit(50);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ carousels: data });
+
+  const provider = pickProvider();
+  return NextResponse.json({
+    carousels: data,
+    provider: providerLabel(provider),
+    // Sem chave nenhuma o botão de gerar precisa avisar antes, não falhar depois.
+    ready: provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : Boolean(process.env.ANTHROPIC_API_KEY),
+  });
 }
 
 /** Recebe o relato do teste e devolve o roteiro dos 8 slides já gravado. */

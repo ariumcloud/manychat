@@ -40,15 +40,25 @@ export default function CarrosselPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [provider, setProvider] = useState<string | null>(null);
+  const [ready, setReady] = useState(true);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
-      const { ok, data, error: err } = await fetchJson<{ carousels: Carousel[] }>("/api/carousels");
+      const { ok, data, error: err } = await fetchJson<{
+        carousels: Carousel[];
+        provider: string;
+        ready: boolean;
+      }>("/api/carousels");
       if (cancelled) return;
-      if (ok) setList(data?.carousels ?? []);
+      if (ok) {
+        setList(data?.carousels ?? []);
+        setProvider(data?.provider ?? null);
+        setReady(data?.ready ?? false);
+      }
       setError(ok ? null : err);
       setLoading(false);
     })();
@@ -119,14 +129,28 @@ export default function CarrosselPage() {
             <button
               className="btn btn-primary"
               onClick={generate}
-              disabled={generating || brief.trim().length < 30}
+              disabled={generating || !ready || brief.trim().length < 30}
             >
               {generating ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />}
               {generating ? "escrevendo…" : "Gerar roteiro"}
             </button>
           </div>
 
-          <p className="mt-3 text-xs leading-relaxed text-[var(--fg-dim)]">
+          {!ready && (
+            <p className="mt-3 text-xs text-[var(--warn)]">
+              Falta a chave de API. Defina OPENAI_API_KEY (ou ANTHROPIC_API_KEY) no .env.local e
+              nas variáveis da Vercel.
+            </p>
+          )}
+
+          {provider && (
+            <p className="mt-3 text-xs text-[var(--fg-dim)]">
+              Escrevendo com <strong className="text-[var(--fg-muted)]">{provider}</strong>. Troque
+              pela variável <code>AI_PROVIDER</code>.
+            </p>
+          )}
+
+          <p className="mt-2 text-xs leading-relaxed text-[var(--fg-dim)]">
             Quanto mais específico o número, melhor o carrossel. &ldquo;Rodei 10 vezes, apareceu
             0&rdquo; funciona; &ldquo;testei e não deu certo&rdquo; não.
           </p>
