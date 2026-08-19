@@ -105,7 +105,7 @@ async function processWebhook(body: WebhookBody) {
 
   async function alreadySeen(dedupeKey: string, object: string | undefined, payload: unknown) {
     const { error } = await supabase
-      .from("webhook_events")
+      .from("mc_webhook_events")
       .insert({ dedupe_key: dedupeKey, object: object ?? null, payload: payload as object });
     // 23505 = chave duplicada, ou seja, o Meta reentregou. Ja tratamos antes.
     return Boolean(error && error.code === "23505");
@@ -114,7 +114,7 @@ async function processWebhook(body: WebhookBody) {
   async function logFailure(dedupeKey: string, err: unknown) {
     console.error("[webhook]", dedupeKey, err);
     await supabase
-      .from("webhook_events")
+      .from("mc_webhook_events")
       .update({ error: err instanceof Error ? err.message : String(err) })
       .eq("dedupe_key", dedupeKey);
   }
@@ -122,7 +122,7 @@ async function processWebhook(body: WebhookBody) {
 
 async function loadTriggers(accountId: string, kind: TriggerKind): Promise<Trigger[]> {
   const { data } = await db()
-    .from("triggers")
+    .from("mc_triggers")
     .select("*")
     .eq("account_id", accountId)
     .eq("kind", kind)
@@ -131,7 +131,7 @@ async function loadTriggers(accountId: string, kind: TriggerKind): Promise<Trigg
 }
 
 async function loadFlow(flowId: string): Promise<Flow | null> {
-  const { data } = await db().from("flows").select("*").eq("id", flowId).maybeSingle();
+  const { data } = await db().from("mc_flows").select("*").eq("id", flowId).maybeSingle();
   if (!data) return null;
   if (data.status !== "live") return null;
   return data as Flow;
@@ -238,7 +238,7 @@ async function handleChange(change: ChangeEvent) {
   const mediaId = value?.media?.id ?? null;
 
   const { data: recorded, error: insertError } = await supabase
-    .from("comment_events")
+    .from("mc_comment_events")
     .insert({
       account_id: account.id,
       comment_id: commentId,
@@ -261,7 +261,7 @@ async function handleChange(change: ChangeEvent) {
   if (!chosen) return;
 
   await supabase
-    .from("comment_events")
+    .from("mc_comment_events")
     .update({ matched_trigger_id: chosen.id })
     .eq("id", recorded.id);
 
@@ -272,7 +272,7 @@ async function handleChange(change: ChangeEvent) {
       chosen.public_reply_texts[Math.floor(Math.random() * chosen.public_reply_texts.length)];
     try {
       await replyToComment(commentId, pick);
-      await supabase.from("comment_events").update({ public_replied: true }).eq("id", recorded.id);
+      await supabase.from("mc_comment_events").update({ public_replied: true }).eq("id", recorded.id);
     } catch (err) {
       console.error("[comment] resposta publica falhou:", err);
     }
@@ -292,7 +292,7 @@ async function handleChange(change: ChangeEvent) {
 
     if (chosen.only_first_time) {
       const { count } = await supabase
-        .from("flow_runs")
+        .from("mc_flow_runs")
         .select("id", { count: "exact", head: true })
         .eq("flow_id", flow.id)
         .eq("contact_id", contactId)
@@ -320,7 +320,7 @@ async function handleChange(change: ChangeEvent) {
   });
 
   await supabase
-    .from("comment_events")
+    .from("mc_comment_events")
     .update({ dm_sent: result.ok, error: result.error ?? null })
     .eq("id", recorded.id);
 }

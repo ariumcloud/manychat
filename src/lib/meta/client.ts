@@ -213,13 +213,71 @@ export async function listMedia(limit = 25): Promise<IgMedia[]> {
 
 // --- Diagnostico do token --------------------------------------------------
 
-export async function debugToken() {
+export type TokenStatus = {
+  valid: boolean;
+  username?: string;
+  userId?: string;
+  error?: string;
+};
+
+/**
+ * Checa se o token vive, sem efeito colateral.
+ *
+ * Nao da pra usar o /debug_token aqui: ele exige um token do Facebook, e um
+ * token de Instagram Login nao carrega app id do FB — a chamada volta com
+ * "Cannot get application info". Um GET /me prova a mesma coisa.
+ */
+export async function inspectToken(): Promise<TokenStatus> {
+  try {
+    const me = await call<{ user_id?: string; id?: string; username?: string }>("me", {
+      query: { fields: "user_id,username" },
+    });
+    return { valid: true, username: me.username, userId: me.user_id ?? me.id };
+  } catch (err) {
+    return { valid: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export type RefreshedToken = {
+  accessToken: string;
+  expiresInSeconds: number;
+  permissions: string[];
+};
+
+/**
+ * Renova o token de longa duracao e, de quebra, e a unica forma de descobrir
+ * validade e permissoes de um token de Instagram Login.
+ *
+ * ATENCAO: isto TEM efeito colateral — devolve um token novo. Nunca chame em
+ * render de pagina; so a partir de uma acao explicita do usuario.
+ */
+export async function refreshLongLivedToken(): Promise<RefreshedToken> {
   const url =
-    `https://graph.facebook.com/${VERSION}/debug_token` +
-    `?input_token=${encodeURIComponent(env.igAccessToken)}` +
-    `&access_token=${encodeURIComponent(`${env.metaAppId}|${env.metaAppSecret}`)}`;
+    `https://graph.instagram.com/refresh_access_token` +
+    `?grant_type=ig_refresh_token` +
+    `&access_token=${encodeURIComponent(env.igAccessToken)}`;
+
   const res = await fetch(url, { cache: "no-store" });
-  return res.json();
+  const json = (await res.json()) as {
+    access_token?: string;
+    expires_in?: number;
+    permissions?: string;
+    error?: { message?: string };
+  };
+
+  if (!res.ok || !json.access_token) {
+    throw new MetaError(
+      json.error?.message ?? `A Graph API respondeu ${res.status}.`,
+      res.status,
+      json,
+    );
+  }
+
+  return {
+    accessToken: json.access_token,
+    expiresInSeconds: json.expires_in ?? 0,
+    permissions: (json.permissions ?? "").split(",").map((p) => p.trim()).filter(Boolean),
+  };
 }
 
 export const metaConfig = { flavor: FLAVOR, version: VERSION, base: BASE };

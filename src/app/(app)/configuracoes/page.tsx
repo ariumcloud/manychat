@@ -1,22 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy, Loader2, RefreshCw, X } from "lucide-react";
+import { Check, Copy, Eye, EyeOff, Loader2, RefreshCw, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { fetchJson } from "@/lib/fetchJson";
 
-type TokenDebug = {
-  data?: {
-    app_id?: string;
-    type?: string;
-    application?: string;
-    expires_at?: number;
-    data_access_expires_at?: number;
-    is_valid?: boolean;
-    scopes?: string[];
-    user_id?: string;
-  };
-  error?: { message?: string };
+type TokenStatus = {
+  valid: boolean;
+  username?: string;
+  userId?: string;
+  error?: string;
+};
+
+type RefreshResult = {
+  accessToken: string;
+  expiresAt: string;
+  days: number;
+  permissions: string[];
 };
 
 type AccountInfo = {
@@ -27,8 +27,7 @@ type AccountInfo = {
     name: string | null;
     followers_count: number | null;
   } | null;
-  token: TokenDebug | null;
-  tokenError: string | null;
+  token: TokenStatus | null;
   meta: { flavor: string; version: string; base: string };
   webhookUrl: string;
 };
@@ -69,6 +68,10 @@ export default function ConfiguracoesPage() {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshed, setRefreshed] = useState<RefreshResult | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [showToken, setShowToken] = useState(false);
   // Incrementar isto recarrega o diagnóstico.
   const [version, setVersion] = useState(0);
 
@@ -90,6 +93,20 @@ export default function ConfiguracoesPage() {
     };
   }, [version]);
 
+  async function refreshToken() {
+    setRefreshing(true);
+    setRefreshError(null);
+    setRefreshed(null);
+
+    const { ok, data, error: err } = await fetchJson<RefreshResult>("/api/account/refresh-token", {
+      method: "POST",
+    });
+
+    if (ok && data) setRefreshed(data);
+    else setRefreshError(err ?? "Não consegui renovar.");
+    setRefreshing(false);
+  }
+
   async function connect() {
     setConnecting(true);
     setError(null);
@@ -110,8 +127,7 @@ export default function ConfiguracoesPage() {
     );
   }
 
-  const token = info?.token?.data;
-  const expiresAt = token?.expires_at ? new Date(token.expires_at * 1000) : null;
+  const token = info?.token;
 
   return (
     <>
@@ -193,48 +209,88 @@ export default function ConfiguracoesPage() {
         <section className="card p-5">
           <h2 className="text-sm font-semibold">Token</h2>
 
-          {info?.tokenError && (
-            <p className="mt-2 text-sm text-[var(--danger)]">{info.tokenError}</p>
-          )}
-          {info?.token?.error?.message && (
-            <p className="mt-2 text-sm text-[var(--danger)]">{info.token.error.message}</p>
-          )}
+          <dl className="mt-4 grid grid-cols-[130px_1fr] gap-y-2.5 text-sm">
+            <dt className="text-[var(--fg-muted)]">Status</dt>
+            <dd>
+              {token?.valid ? (
+                <span className="chip chip-ok">funcionando</span>
+              ) : (
+                <span className="chip chip-danger">inválido</span>
+              )}
+            </dd>
 
-          {token && (
-            <dl className="mt-4 grid grid-cols-[130px_1fr] gap-y-2.5 text-sm">
-              <dt className="text-[var(--fg-muted)]">Válido</dt>
-              <dd>
-                {token.is_valid ? (
-                  <span className="chip chip-ok">sim</span>
-                ) : (
-                  <span className="chip chip-danger">não</span>
-                )}
-              </dd>
+            <dt className="text-[var(--fg-muted)]">Conta</dt>
+            <dd>{token?.username ? `@${token.username}` : "—"}</dd>
+          </dl>
 
-              <dt className="text-[var(--fg-muted)]">Expira</dt>
-              <dd>
-                {expiresAt === null
-                  ? "—"
-                  : token.expires_at === 0
-                    ? "nunca"
-                    : expiresAt.toLocaleString("pt-BR")}
-              </dd>
-
-              <dt className="text-[var(--fg-muted)]">Tipo</dt>
-              <dd>{token.type ?? "—"}</dd>
-
-              <dt className="text-[var(--fg-muted)]">Permissões</dt>
-              <dd className="flex flex-wrap gap-1">
-                {(token.scopes ?? []).map((s) => (
-                  <span key={s} className="chip font-mono text-[10px]">
-                    {s}
-                  </span>
-                ))}
-              </dd>
-            </dl>
+          {token && !token.valid && token.error && (
+            <p className="mt-3 text-sm text-[var(--danger)]">{token.error}</p>
           )}
 
-          <p className="mt-4 text-xs text-[var(--fg-dim)]">
+          <div className="mt-5 border-t border-[var(--border)] pt-4">
+            <p className="text-sm leading-relaxed text-[var(--fg-muted)]">
+              Tokens do Instagram expiram em <strong className="text-[var(--fg)]">60 dias</strong>.
+              Renovar devolve um token novo — e é a única forma de ver validade e permissões, já que
+              o <code>debug_token</code> do Facebook não funciona com Instagram Login.
+            </p>
+
+            <button className="btn btn-ghost mt-3" onClick={refreshToken} disabled={refreshing}>
+              {refreshing && <Loader2 size={14} className="animate-spin" />}
+              Renovar token
+            </button>
+
+            {refreshError && (
+              <p className="mt-3 text-sm text-[var(--danger)]">{refreshError}</p>
+            )}
+
+            {refreshed && (
+              <div className="mt-4 space-y-3">
+                <p className="text-sm text-[var(--success)]">
+                  Renovado. Válido por mais {refreshed.days} dias (até{" "}
+                  {new Date(refreshed.expiresAt).toLocaleDateString("pt-BR")}).
+                </p>
+
+                <div>
+                  <span className="label">Permissões concedidas</span>
+                  <div className="flex flex-wrap gap-1">
+                    {refreshed.permissions.map((p) => (
+                      <span key={p} className="chip font-mono text-[10px]">
+                        {p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="label">Token novo</span>
+                  <div className="flex gap-2">
+                    <input
+                      readOnly
+                      type={showToken ? "text" : "password"}
+                      value={refreshed.accessToken}
+                      className="input font-mono text-xs"
+                    />
+                    <button className="btn btn-ghost" onClick={() => setShowToken((v) => !v)}>
+                      {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => void navigator.clipboard.writeText(refreshed.accessToken)}
+                    >
+                      <Copy size={14} />
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-xs text-[var(--warn)]">
+                    Cole em <code>IG_ACCESS_TOKEN</code> no <code>.env.local</code> e nas
+                    Environment Variables da Vercel, depois redeploy. O token antigo continua
+                    valendo até a data original.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <p className="mt-5 text-xs text-[var(--fg-dim)]">
             API em uso: <code>{info?.meta.base}</code> (sabor{" "}
             <strong>{info?.meta.flavor}</strong>). Se as chamadas derem 400, troque{" "}
             <code>META_API_FLAVOR</code> entre <code>instagram</code> e <code>facebook</code>.

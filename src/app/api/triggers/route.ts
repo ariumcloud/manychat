@@ -11,8 +11,8 @@ async function getHandler(req: Request) {
   const kind = new URL(req.url).searchParams.get("kind");
 
   let query = db()
-    .from("triggers")
-    .select("*, flows(id, name, status)")
+    .from("mc_triggers")
+    .select("*, flows:mc_flows(id, name, status)")
     .eq("account_id", account.id)
     .order("created_at", { ascending: false });
 
@@ -32,7 +32,7 @@ async function postHandler(req: Request) {
   }
 
   const { data, error } = await db()
-    .from("triggers")
+    .from("mc_triggers")
     .insert({
       account_id: account.id,
       flow_id: body.flow_id,
@@ -46,7 +46,7 @@ async function postHandler(req: Request) {
       public_reply_texts: body.public_reply_texts ?? [],
       only_first_time: body.only_first_time ?? false,
     })
-    .select("*, flows(id, name, status)")
+    .select("*, flows:mc_flows(id, name, status)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

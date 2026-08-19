@@ -4,7 +4,7 @@ Automação de Instagram DM: comentário vira DM, palavra-chave vira conversa, c
 inbox ao vivo e construtor de fluxo visual.
 
 - **Next.js 16** (App Router) + TypeScript + Tailwind 4
-- **Supabase** (Postgres) — schema `manychat` dentro do projeto `Arium`
+- **Supabase** (Postgres) — tabelas `mc_*` no schema `public` do projeto `Arium`
 - **Meta Graph API** — Instagram Messaging + Comments webhook
 - **React Flow** (`@xyflow/react`) para o construtor visual
 
@@ -102,7 +102,7 @@ Comentário no IG
       │
       ▼
 POST /api/webhook/instagram        assinatura HMAC verificada
-      │                            evento gravado em webhook_events (dedupe)
+      │                            evento gravado em mc_webhook_events (dedupe)
       ▼
 pickTrigger()                      casa palavra-chave (sem acento, sem caixa)
       │
@@ -129,21 +129,26 @@ escreveu. Só funciona **uma vez por comentário** e dentro de **7 dias**.
 - **Delay em serverless**: máximo 8s por nó — a função morre junto com a
   resposta. Delays longos precisariam de fila (QStash, Inngest, cron).
 
-### Tabelas (schema `manychat`)
+### Tabelas (schema `public`, prefixo `mc_`)
 
-`accounts`, `contacts`, `tags`, `contact_tags`, `conversations`, `messages`,
-`flows`, `triggers`, `flow_runs`, `comment_events`, `webhook_events`,
-`broadcasts`.
+`mc_accounts`, `mc_contacts`, `mc_tags`, `mc_contact_tags`, `mc_conversations`,
+`mc_messages`, `mc_flows`, `mc_triggers`, `mc_flow_runs`, `mc_comment_events`,
+`mc_webhook_events`, `mc_broadcasts`.
 
-RLS está ligado em todas, **sem policies** — só o `service_role` (server-side)
-acessa. Nada é exposto ao navegador.
+O prefixo existe porque o PostgREST só atende schemas que estejam na lista de
+**Exposed schemas** do projeto — configuração de painel, não de migração. Um
+schema `manychat` próprio quebrava com `Invalid schema: manychat`.
+
+Segurança em duas camadas: RLS ligado em todas **sem policies**, e os grants
+dados só ao `service_role` — `anon` e `authenticated` não têm nem permissão de
+`SELECT`. O navegador não alcança essas tabelas em nenhuma hipótese.
 
 ## Depurar
 
-- **Configurações** mostra o token: validade, escopos, a quem pertence.
-- `webhook_events` guarda todo evento cru recebido, com a coluna `error`.
-- `flow_runs` guarda cada execução: status, passos, erro.
-- `comment_events` mostra comentário a comentário se a DM saiu.
+- **Configurações** mostra se o token vive e a quem pertence, e renova o token de 60 dias mostrando as permissões.
+- `mc_webhook_events` guarda todo evento cru recebido, com a coluna `error`.
+- `mc_flow_runs` guarda cada execução: status, passos, erro.
+- `mc_comment_events` mostra comentário a comentário se a DM saiu.
 
 Se o Meta não entrega nada: confira se assinou o campo `comments`, se o app
 saiu do modo de desenvolvimento, e se a conta IG é Business/Creator.

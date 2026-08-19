@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { configStatus } from "@/lib/env";
 import { getAccount, getAccountCached } from "@/lib/repo";
-import { debugToken, metaConfig, MetaError } from "@/lib/meta/client";
+import { inspectToken, metaConfig, MetaError } from "@/lib/meta/client";
 import { withApi } from "@/lib/api";
 
 export const runtime = "nodejs";
@@ -18,23 +18,14 @@ function webhookUrl(req: Request) {
 /** Diagnóstico: o que está configurado, se o token vive e a quem ele pertence. */
 async function getHandler(req: Request) {
   const config = configStatus();
-  const account = config.supabase ? await getAccountCached().catch(() => null) : null;
 
-  let token: unknown = null;
-  let tokenError: string | null = null;
-  if (config.token && config.meta) {
-    try {
-      token = await debugToken();
-    } catch (err) {
-      tokenError = err instanceof Error ? err.message : String(err);
-    }
-  }
+  const account = config.supabase ? await getAccountCached().catch(() => null) : null;
+  const token = config.token ? await inspectToken() : null;
 
   return NextResponse.json({
     config,
     account,
     token,
-    tokenError,
     meta: metaConfig,
     webhookUrl: webhookUrl(req),
   });

@@ -34,7 +34,7 @@ export default async function ContatosPage() {
   }
 
   const { data } = await db()
-    .from("contacts")
+    .from("mc_contacts")
     .select("*")
     .eq("account_id", account.id)
     .order("last_interaction_at", { ascending: false, nullsFirst: false })

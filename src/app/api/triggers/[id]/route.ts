@@ -28,10 +28,10 @@ async function patchHandler(req: Request, { params }: Params) {
   for (const key of EDITABLE) if (key in body) patch[key] = body[key];
 
   const { data, error } = await db()
-    .from("triggers")
+    .from("mc_triggers")
     .update(patch)
     .eq("id", id)
-    .select("*, flows(id, name, status)")
+    .select("*, flows:mc_flows(id, name, status)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -40,7 +40,7 @@ async function patchHandler(req: Request, { params }: Params) {
 
 async function deleteHandler(_req: Request, { params }: Params) {
   const { id } = await params;
-  const { error } = await db().from("triggers").delete().eq("id", id);
+  const { error } = await db().from("mc_triggers").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

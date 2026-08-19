@@ -16,7 +16,7 @@ async function getHandler(req: Request) {
 
   const supabase = db();
   const { data, error } = await supabase
-    .from("messages")
+    .from("mc_messages")
     .select("*")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
@@ -24,7 +24,7 @@ async function getHandler(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await supabase.from("conversations").update({ unread_count: 0 }).eq("id", conversationId);
+  await supabase.from("mc_conversations").update({ unread_count: 0 }).eq("id", conversationId);
   return NextResponse.json({ messages: data });
 }
 
@@ -43,8 +43,8 @@ async function postHandler(req: Request) {
   const supabase = db();
 
   const { data: conversation } = await supabase
-    .from("conversations")
-    .select("*, contacts(igsid, username)")
+    .from("mc_conversations")
+    .select("*, contacts:mc_contacts(igsid, username)")
     .eq("id", conversationId)
     .maybeSingle();
 

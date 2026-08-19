@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 async function getHandler() {
   const account = await getAccount();
   const { data, error } = await db()
-    .from("flows")
+    .from("mc_flows")
     .select("*")
     .eq("account_id", account.id)
     .order("updated_at", { ascending: false });
@@ -26,7 +26,7 @@ async function postHandler(req: Request) {
   };
 
   const { data, error } = await db()
-    .from("flows")
+    .from("mc_flows")
     .insert({
       account_id: account.id,
       name: body.name?.trim() || "Fluxo sem nome",

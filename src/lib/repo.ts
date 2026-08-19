@@ -28,7 +28,7 @@ export async function getAccount(force = false): Promise<Account> {
   const supabase = db();
 
   if (!force) {
-    const { data } = await supabase.from("accounts").select("*").limit(1).maybeSingle();
+    const { data } = await supabase.from("mc_accounts").select("*").limit(1).maybeSingle();
     if (data) {
       accountCache = { value: data as Account, at: Date.now() };
       return data as Account;
@@ -40,7 +40,7 @@ export async function getAccount(force = false): Promise<Account> {
   if (!igUserId) throw new Error("Nao consegui descobrir o ID da conta do Instagram.");
 
   const { data, error } = await supabase
-    .from("accounts")
+    .from("mc_accounts")
     .upsert(
       {
         ig_user_id: igUserId,
@@ -62,7 +62,7 @@ export async function getAccount(force = false): Promise<Account> {
 
 /** Conta conectada sem tocar na Meta. null se ainda nao conectou. */
 export async function getAccountCached(): Promise<Account | null> {
-  const { data } = await db().from("accounts").select("*").limit(1).maybeSingle();
+  const { data } = await db().from("mc_accounts").select("*").limit(1).maybeSingle();
   return (data as Account) ?? null;
 }
 
@@ -84,7 +84,7 @@ export async function upsertContact(
   const supabase = db();
 
   const { data: existing } = await supabase
-    .from("contacts")
+    .from("mc_contacts")
     .select("*")
     .eq("account_id", accountId)
     .eq("igsid", igsid)
@@ -97,7 +97,7 @@ export async function upsertContact(
     if (hints.name && !existing.name) patch.name = hints.name;
     if (Object.keys(patch).length) {
       const { data } = await supabase
-        .from("contacts")
+        .from("mc_contacts")
         .update(patch)
         .eq("id", existing.id)
         .select()
@@ -110,7 +110,7 @@ export async function upsertContact(
   const profile = await getUserProfile(igsid);
 
   const { data, error } = await supabase
-    .from("contacts")
+    .from("mc_contacts")
     .upsert(
       {
         account_id: accountId,
@@ -136,7 +136,7 @@ export async function getOrCreateConversation(accountId: string, contactId: stri
   const supabase = db();
 
   const { data: existing } = await supabase
-    .from("conversations")
+    .from("mc_conversations")
     .select("*")
     .eq("account_id", accountId)
     .eq("contact_id", contactId)
@@ -144,7 +144,7 @@ export async function getOrCreateConversation(accountId: string, contactId: stri
   if (existing) return existing;
 
   const { data, error } = await supabase
-    .from("conversations")
+    .from("mc_conversations")
     .upsert({ account_id: accountId, contact_id: contactId }, { onConflict: "account_id,contact_id" })
     .select()
     .single();
@@ -177,7 +177,7 @@ export async function recordMessage(input: RecordMessageInput) {
   const now = new Date();
 
   const { data, error } = await supabase
-    .from("messages")
+    .from("mc_messages")
     .insert({
       account_id: input.accountId,
       conversation_id: input.conversationId,
@@ -210,21 +210,21 @@ export async function recordMessage(input: RecordMessageInput) {
     patch.status = "open";
   }
 
-  await supabase.from("conversations").update(patch).eq("id", input.conversationId);
+  await supabase.from("mc_conversations").update(patch).eq("id", input.conversationId);
 
   if (input.direction === "in") {
     const { data: conv } = await supabase
-      .from("conversations")
+      .from("mc_conversations")
       .select("contact_id, unread_count")
       .eq("id", input.conversationId)
       .single();
     if (conv) {
       await supabase
-        .from("conversations")
+        .from("mc_conversations")
         .update({ unread_count: (conv.unread_count ?? 0) + 1 })
         .eq("id", input.conversationId);
       await supabase
-        .from("contacts")
+        .from("mc_contacts")
         .update({ last_interaction_at: now.toISOString() })
         .eq("id", conv.contact_id);
     }

@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 async function getHandler() {
   const account = await getAccount();
   const { data, error } = await db()
-    .from("conversations")
-    .select("*, contacts(id, igsid, username, name, profile_picture_url)")
+    .from("mc_conversations")
+    .select("*, contacts:mc_contacts(id, igsid, username, name, profile_picture_url)")
     .eq("account_id", account.id)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(100);

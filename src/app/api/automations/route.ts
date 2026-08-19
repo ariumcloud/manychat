@@ -61,7 +61,7 @@ async function postHandler(req: Request) {
   }
 
   const { data: flow, error: flowError } = await supabase
-    .from("flows")
+    .from("mc_flows")
     .insert({
       account_id: account.id,
       name: body.name?.trim() || keywords[0] || "Automação",
@@ -75,7 +75,7 @@ async function postHandler(req: Request) {
   if (flowError) return NextResponse.json({ error: flowError.message }, { status: 500 });
 
   const { data: trigger, error: triggerError } = await supabase
-    .from("triggers")
+    .from("mc_triggers")
     .insert({
       account_id: account.id,
       flow_id: flow.id,
@@ -87,12 +87,12 @@ async function postHandler(req: Request) {
       public_reply_texts: (body.public_reply_texts ?? []).filter(Boolean),
       only_first_time: body.only_first_time ?? false,
     })
-    .select("*, flows(id, name, status)")
+    .select("*, flows:mc_flows(id, name, status)")
     .single();
 
   if (triggerError) {
     // Sem gatilho o fluxo fica órfão e confunde a lista — desfaz.
-    await supabase.from("flows").delete().eq("id", flow.id);
+    await supabase.from("mc_flows").delete().eq("id", flow.id);
     return NextResponse.json({ error: triggerError.message }, { status: 500 });
   }
 

@@ -66,7 +66,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
   const supabase = db();
 
   const { data: run } = await supabase
-    .from("flow_runs")
+    .from("mc_flow_runs")
     .insert({
       account_id: ctx.accountId,
       flow_id: flow.id,
@@ -87,7 +87,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
   const finish = async (status: string, error?: string) => {
     if (run) {
       await supabase
-        .from("flow_runs")
+        .from("mc_flow_runs")
         .update({
           status,
           error: error ?? null,
@@ -98,7 +98,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     }
     if (status === "done") {
       await supabase
-        .from("flows")
+        .from("mc_flows")
         .update({ sent_count: (flow.sent_count ?? 0) + 1 })
         .eq("id", flow.id);
     }
@@ -136,16 +136,16 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
         // criado la no webhook vira lixo. Repassa o run e apaga.
         if (placeholderId !== contactId) {
           const { data: old } = await supabase
-            .from("contacts")
+            .from("mc_contacts")
             .select("igsid")
             .eq("id", placeholderId)
             .maybeSingle();
 
           if (old?.igsid?.startsWith("pending:")) {
             if (run) {
-              await supabase.from("flow_runs").update({ contact_id: contactId }).eq("id", run.id);
+              await supabase.from("mc_flow_runs").update({ contact_id: contactId }).eq("id", run.id);
             }
-            await supabase.from("contacts").delete().eq("id", placeholderId);
+            await supabase.from("mc_contacts").delete().eq("id", placeholderId);
           }
         }
       }
@@ -185,14 +185,14 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     }
     if (field === "has_tag") {
       const { data: tag } = await supabase
-        .from("tags")
+        .from("mc_tags")
         .select("id")
         .eq("account_id", ctx.accountId)
         .eq("name", value ?? "")
         .maybeSingle();
       if (!tag) return false;
       const { data: link } = await supabase
-        .from("contact_tags")
+        .from("mc_contact_tags")
         .select("contact_id")
         .eq("contact_id", contactId)
         .eq("tag_id", tag.id)
@@ -201,7 +201,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     }
 
     const { data: contact } = await supabase
-      .from("contacts")
+      .from("mc_contacts")
       .select("is_user_follow_business, follower_count")
       .eq("id", contactId)
       .maybeSingle();
@@ -221,13 +221,13 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
 
   const applyTag = async (name: string) => {
     const { data: tag } = await supabase
-      .from("tags")
+      .from("mc_tags")
       .upsert({ account_id: ctx.accountId, name }, { onConflict: "account_id,name" })
       .select()
       .single();
     if (tag) {
       await supabase
-        .from("contact_tags")
+        .from("mc_contact_tags")
         .upsert({ contact_id: contactId, tag_id: tag.id }, { onConflict: "contact_id,tag_id" });
     }
   };

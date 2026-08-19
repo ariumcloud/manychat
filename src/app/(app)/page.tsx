@@ -32,36 +32,36 @@ async function loadStats(accountId: string): Promise<Stats> {
   const since = new Date(Date.now() - DAYS * 86400_000).toISOString();
 
   const [contacts, dms, comments, triggers, dmRows, commentRows, recent] = await Promise.all([
-    supabase.from("contacts").select("id", { count: "exact", head: true }).eq("account_id", accountId),
+    supabase.from("mc_contacts").select("id", { count: "exact", head: true }).eq("account_id", accountId),
     supabase
-      .from("messages")
+      .from("mc_messages")
       .select("id", { count: "exact", head: true })
       .eq("account_id", accountId)
       .eq("direction", "out")
       .gte("created_at", since),
     supabase
-      .from("comment_events")
+      .from("mc_comment_events")
       .select("id", { count: "exact", head: true })
       .eq("account_id", accountId)
       .gte("created_at", since),
     supabase
-      .from("triggers")
+      .from("mc_triggers")
       .select("id", { count: "exact", head: true })
       .eq("account_id", accountId)
       .eq("enabled", true),
     supabase
-      .from("messages")
+      .from("mc_messages")
       .select("created_at")
       .eq("account_id", accountId)
       .eq("direction", "out")
       .gte("created_at", since),
     supabase
-      .from("comment_events")
+      .from("mc_comment_events")
       .select("created_at")
       .eq("account_id", accountId)
       .gte("created_at", since),
     supabase
-      .from("comment_events")
+      .from("mc_comment_events")
       .select("id, from_username, text, dm_sent, matched_trigger_id, created_at")
       .eq("account_id", accountId)
       .order("created_at", { ascending: false })
