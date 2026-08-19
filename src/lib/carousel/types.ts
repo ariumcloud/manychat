@@ -19,6 +19,9 @@ export type Carousel = {
   verified: boolean;
   slides: Slide[];
   status: string;
+  published_at: string | null;
+  ig_media_id: string | null;
+  caption: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -6,12 +6,14 @@ import {
   Clapperboard,
   Contact,
   FlaskConical,
+  HelpCircle,
   Inbox,
   LayoutDashboard,
   LayoutGrid,
   LogOut,
   MessageSquareShare,
   Settings,
+  TrendingUp,
   Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,6 +24,8 @@ const NAV = [
   { href: "/fluxos", label: "Fluxos", icon: Workflow },
   { href: "/reels", label: "Reels", icon: Clapperboard },
   { href: "/carrossel", label: "Carrosséis", icon: LayoutGrid },
+  { href: "/duvidas", label: "Dúvidas", icon: HelpCircle },
+  { href: "/desempenho", label: "Desempenho", icon: TrendingUp },
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/contatos", label: "Contatos", icon: Contact },
   { href: "/testes-api", label: "Testes de API", icon: FlaskConical },

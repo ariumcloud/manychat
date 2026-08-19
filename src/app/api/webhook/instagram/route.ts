@@ -142,7 +142,41 @@ async function loadFlow(flowId: string): Promise<Flow | null> {
 async function handleMessaging(event: MessagingEvent) {
   // Echo = mensagem que NOS enviamos, refletida de volta. Ignorar.
   if (event.message?.is_echo || event.message?.is_deleted) return;
-  if (event.read || event.reaction) return;
+
+  // Confirmacao de leitura: e o degrau "abriu" do funil. Marca tudo que foi
+  // enviado ate o mid lido, porque o Instagram avisa a leitura mais recente e
+  // nao uma por mensagem.
+  if (event.read) {
+    const account = await getAccount();
+    const igsid = event.sender?.id;
+    if (!igsid) return;
+
+    const { data: contact } = await db()
+      .from("mc_contacts")
+      .select("id")
+      .eq("account_id", account.id)
+      .eq("igsid", igsid)
+      .maybeSingle();
+    if (!contact) return;
+
+    const { data: conversation } = await db()
+      .from("mc_conversations")
+      .select("id")
+      .eq("account_id", account.id)
+      .eq("contact_id", contact.id)
+      .maybeSingle();
+    if (!conversation) return;
+
+    await db()
+      .from("mc_messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("conversation_id", conversation.id)
+      .eq("direction", "out")
+      .is("read_at", null);
+    return;
+  }
+
+  if (event.reaction) return;
 
   const igsid = event.sender?.id;
   if (!igsid) return;

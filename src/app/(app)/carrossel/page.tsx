@@ -6,6 +6,7 @@ import {
   Download,
   ImageIcon,
   Loader2,
+  Send,
   Sparkles,
   Trash2,
   Wand2,
@@ -28,6 +29,8 @@ type Carousel = {
   slides: Slide[];
   created_at: string;
   updated_at: string;
+  published_at?: string | null;
+  ig_media_id?: string | null;
 };
 
 const EXEMPLO =
@@ -226,6 +229,10 @@ function Editor({ carousel, onBack }: { carousel: Carousel; onBack: () => void }
   const [error, setError] = useState<string | null>(null);
   // Muda quando algo é salvo, para forçar o navegador a rebuscar os PNGs.
   const [stamp, setStamp] = useState(0);
+  const [publishing, setPublishing] = useState(false);
+  const [publishedId, setPublishedId] = useState(carousel.ig_media_id ?? null);
+  const [caption, setCaption] = useState("");
+  const [showPublish, setShowPublish] = useState(false);
 
   function patch(n: number, text: string) {
     setSlides((prev) => prev.map((s) => (s.n === n ? { ...s, text } : s)));
@@ -246,6 +253,28 @@ function Editor({ carousel, onBack }: { carousel: Carousel; onBack: () => void }
     setSaving(false);
   }
 
+  async function publish() {
+    setPublishing(true);
+    setError(null);
+
+    const { ok, data, error: err } = await fetchJson<{ ig_media_id: string }>(
+      `/api/carousels/${carousel.id}/publish`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caption, confirm: true }),
+      },
+    );
+
+    if (ok && data) {
+      setPublishedId(data.ig_media_id);
+      setShowPublish(false);
+    } else {
+      setError(err ?? "Não consegui publicar.");
+    }
+    setPublishing(false);
+  }
+
   return (
     <>
       <PageHeader
@@ -259,9 +288,16 @@ function Editor({ carousel, onBack }: { carousel: Carousel; onBack: () => void }
             <button className="btn btn-ghost" onClick={save} disabled={saving}>
               {saving && <Loader2 size={14} className="animate-spin" />} Salvar
             </button>
-            <a className="btn btn-primary" href={`/api/carousels/${carousel.id}/zip`}>
-              <Download size={15} /> Baixar ZIP
+            <a className="btn btn-ghost" href={`/api/carousels/${carousel.id}/zip`}>
+              <Download size={15} /> ZIP
             </a>
+            {publishedId ? (
+              <span className="chip chip-ok">publicado</span>
+            ) : (
+              <button className="btn btn-primary" onClick={() => setShowPublish(true)}>
+                <Send size={15} /> Publicar
+              </button>
+            )}
           </div>
         }
       />
@@ -270,6 +306,50 @@ function Editor({ carousel, onBack }: { carousel: Carousel; onBack: () => void }
         {error && (
           <div className="card mb-5 border-[rgba(248,113,113,0.4)] p-4 text-sm text-[var(--danger)]">
             {error}
+          </div>
+        )}
+
+        {showPublish && (
+          <div
+            className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-6"
+            onClick={() => setShowPublish(false)}
+          >
+            <div
+              className="card w-full max-w-lg p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-sm font-semibold">Publicar no Instagram</h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--fg-muted)]">
+                Isto posta {slides.length} imagens no feed de verdade, agora.{" "}
+                <strong className="text-[var(--fg)]">Não dá pra desfazer pelo painel</strong> — só
+                apagando pelo app do Instagram.
+              </p>
+
+              <label className="label mt-5" htmlFor="cap">
+                Legenda
+              </label>
+              <textarea
+                id="cap"
+                rows={5}
+                className="input resize-none"
+                placeholder={"Comenta CARROSSEL que eu te mando a fórmula no direct 👇"}
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+              />
+              <p className="mt-1.5 text-xs text-[var(--fg-dim)]">
+                É aqui que entra a palavra-chave da sua automação.
+              </p>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <button className="btn btn-ghost" onClick={() => setShowPublish(false)}>
+                  Cancelar
+                </button>
+                <button className="btn btn-primary" onClick={publish} disabled={publishing}>
+                  {publishing && <Loader2 size={14} className="animate-spin" />}
+                  {publishing ? "publicando…" : "Publicar agora"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

@@ -182,6 +182,41 @@ export function replyToComment(commentId: string, message: string) {
   return call<{ id: string }>(`${commentId}/replies`, { method: "POST", body: { message } });
 }
 
+export type IgComment = {
+  id: string;
+  text?: string;
+  username?: string;
+  timestamp?: string;
+  like_count?: number;
+};
+
+/** Comentarios de um post. Pagina ate `limit`, porque a API devolve de 25 em 25. */
+export async function listComments(mediaId: string, limit = 200): Promise<IgComment[]> {
+  const out: IgComment[] = [];
+  let after: string | undefined;
+
+  while (out.length < limit) {
+    const res = await call<{ data: IgComment[]; paging?: { cursors?: { after?: string } } }>(
+      `${mediaId}/comments`,
+      {
+        query: {
+          fields: "id,text,username,timestamp,like_count",
+          limit: "50",
+          ...(after ? { after } : {}),
+        },
+      },
+    );
+
+    const batch = res.data ?? [];
+    out.push(...batch);
+
+    after = res.paging?.cursors?.after;
+    if (!after || batch.length === 0) break;
+  }
+
+  return out.slice(0, limit);
+}
+
 export function hideComment(commentId: string, hide = true) {
   return call<{ success: boolean }>(commentId, { method: "POST", body: { hide } });
 }
@@ -209,6 +244,51 @@ export async function listMedia(limit = 25): Promise<IgMedia[]> {
     },
   });
   return res.data ?? [];
+}
+
+// --- Publicacao --------------------------------------------------------------
+
+/**
+ * Publicar carrossel sao tres etapas: um container por imagem, um container do
+ * carrossel apontando para eles, e so entao o publish. As imagens precisam
+ * estar em URLs publicas — o Instagram e quem baixa.
+ */
+export async function createCarouselItem(imageUrl: string): Promise<string> {
+  const res = await call<{ id: string }>(`${selfId()}/media`, {
+    method: "POST",
+    query: { image_url: imageUrl, is_carousel_item: "true" },
+  });
+  return res.id;
+}
+
+export async function createCarouselContainer(
+  childrenIds: string[],
+  caption: string,
+): Promise<string> {
+  const res = await call<{ id: string }>(`${selfId()}/media`, {
+    method: "POST",
+    query: {
+      media_type: "CAROUSEL",
+      children: childrenIds.join(","),
+      caption,
+    },
+  });
+  return res.id;
+}
+
+export async function getContainerStatus(containerId: string) {
+  return call<{ status_code?: string; status?: string }>(containerId, {
+    query: { fields: "status_code,status" },
+  });
+}
+
+/** Passo irreversivel: a partir daqui o post esta no ar. */
+export async function publishContainer(creationId: string): Promise<string> {
+  const res = await call<{ id: string }>(`${selfId()}/media_publish`, {
+    method: "POST",
+    query: { creation_id: creationId },
+  });
+  return res.id;
 }
 
 // --- Diagnostico do token --------------------------------------------------

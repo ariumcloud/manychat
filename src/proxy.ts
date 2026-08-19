@@ -11,6 +11,8 @@ export async function proxy(req: NextRequest) {
   if (
     pathname.startsWith("/api/webhook") ||
     pathname.startsWith("/api/auth") ||
+    // Links rastreados sao abertos pelos seus seguidores, nao por voce.
+    pathname.startsWith("/r/") ||
     pathname === "/login"
   ) {
     return NextResponse.next();

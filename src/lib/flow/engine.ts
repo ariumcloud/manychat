@@ -13,6 +13,7 @@ import {
   sendText,
   type QuickReply,
 } from "../meta/client";
+import { appBaseUrl, createTrackedLink } from "../links";
 import type { Flow, FlowEdge, FlowNode } from "./types";
 
 /**
@@ -306,10 +307,25 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
         }
 
         case "buttons": {
-          const buttons = (node.data.buttons ?? []).map((b) =>
-            b.kind === "url"
-              ? ({ type: "web_url", title: b.label, url: b.url } as const)
-              : ({ type: "postback", title: b.label, payload: b.payload } as const),
+          // Cada link vira um /r/<token> próprio deste envio — é assim que o
+          // clique volta pra gente.
+          const buttons = await Promise.all(
+            (node.data.buttons ?? []).map(async (b) =>
+              b.kind === "url"
+                ? ({
+                    type: "web_url",
+                    title: b.label,
+                    url: await createTrackedLink({
+                      accountId: ctx.accountId,
+                      url: b.url,
+                      contactId,
+                      flowId: flow.id,
+                      triggerId: ctx.triggerId ?? null,
+                      baseUrl: appBaseUrl(),
+                    }),
+                  } as const)
+                : ({ type: "postback", title: b.label, payload: b.payload } as const),
+            ),
           );
           if (commentToUse) {
             // Template exige recipient.id: abre a conversa com o texto primeiro.
