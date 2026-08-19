@@ -10,6 +10,7 @@ import {
   Plus,
   Sparkles,
   Trash2,
+  UserPlus,
   X,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -272,6 +273,11 @@ function CreateDrawer({
   const [publicReply, setPublicReply] = useState(true);
   const [publicReplyText, setPublicReplyText] = useState("Te mandei no direct! 📩");
   const [onlyFirstTime, setOnlyFirstTime] = useState(false);
+  const [followGate, setFollowGate] = useState(false);
+  const [gateText, setGateText] = useState(
+    "Opa! Antes de te mandar, me segue aqui 👉 é rapidinho.\n\nDepois toca no botão abaixo que eu te envio na hora 👇",
+  );
+  const [gateButton, setGateButton] = useState("JÁ TE SEGUI ✅");
   const [mediaId, setMediaId] = useState(initialMediaId ?? "");
   const [media, setMedia] = useState<Media[]>([]);
   const [saving, setSaving] = useState(false);
@@ -308,6 +314,9 @@ function CreateDrawer({
         public_reply_enabled: kind === "comment_keyword" && publicReply,
         public_reply_texts: publicReplyText.split("\n").map((t) => t.trim()).filter(Boolean),
         only_first_time: onlyFirstTime,
+        follow_gate_enabled: followGate,
+        follow_gate_text: gateText,
+        follow_gate_button: gateButton,
       }),
     });
 
@@ -422,7 +431,7 @@ function CreateDrawer({
 
           <div>
             <label className="label" htmlFor="dm">
-              Mensagem enviada na DM
+              {followGate ? "Mensagem para quem JÁ te segue (o conteúdo)" : "Mensagem enviada na DM"}
             </label>
             <textarea
               id="dm"
@@ -432,6 +441,61 @@ function CreateDrawer({
               value={dmText}
               onChange={(e) => setDmText(e.target.value)}
             />
+          </div>
+
+          <div className="card space-y-3 p-4">
+            <label className="flex items-center gap-2.5 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={followGate}
+                onChange={(e) => setFollowGate(e.target.checked)}
+                className="accent-[var(--accent)]"
+              />
+              <UserPlus size={15} className="text-[var(--accent)]" />
+              Só entregar para quem me segue
+            </label>
+
+            {!followGate ? (
+              <p className="text-xs text-[var(--fg-dim)]">
+                Ligando isso, quem não te segue recebe um pedido para seguir e um botão para
+                destravar o conteúdo.
+              </p>
+            ) : (
+              <>
+                <div>
+                  <label className="label" htmlFor="gate-text">
+                    Mensagem para quem NÃO te segue
+                  </label>
+                  <textarea
+                    id="gate-text"
+                    rows={4}
+                    className="input resize-none"
+                    value={gateText}
+                    onChange={(e) => setGateText(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="label" htmlFor="gate-btn">
+                    Botão para destravar (máx. 20 caracteres)
+                  </label>
+                  <input
+                    id="gate-btn"
+                    className="input"
+                    maxLength={20}
+                    value={gateButton}
+                    onChange={(e) => setGateButton(e.target.value)}
+                  />
+                </div>
+
+                <p className="text-xs leading-relaxed text-[var(--fg-dim)]">
+                  Ao tocar no botão eu consulto o Instagram de novo. Se já estiver seguindo, o
+                  conteúdo sai na hora; se não, recebe o pedido outra vez. Quando a API não informa
+                  o status, trato como <strong>não seguidor</strong> — o motivo fica registrado no
+                  log da execução.
+                </p>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

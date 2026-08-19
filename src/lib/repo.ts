@@ -132,6 +132,36 @@ export async function upsertContact(
   return data as Contact;
 }
 
+/**
+ * Rebusca o perfil na Graph API e atualiza o contato.
+ *
+ * Existe por causa do follow gate: `upsertContact` só consulta o perfil quando
+ * o contato é criado, então o "segue ou não" congelaria para sempre — e é
+ * exatamente o campo que muda quando a pessoa aperta "já te segui".
+ *
+ * Devolve `null` em is_user_follow_business quando a API não informa. Isso é
+ * diferente de `false`: significa "não deu para saber".
+ */
+export async function refreshContactProfile(
+  contactId: string,
+  igsid: string,
+): Promise<{ followsUs: boolean | null }> {
+  const profile = await getUserProfile(igsid);
+  if (!profile) return { followsUs: null };
+
+  const followsUs =
+    typeof profile.is_user_follow_business === "boolean" ? profile.is_user_follow_business : null;
+
+  const patch: Record<string, unknown> = { is_user_follow_business: followsUs };
+  if (profile.username) patch.username = profile.username;
+  if (profile.name) patch.name = profile.name;
+  if (profile.profile_pic) patch.profile_picture_url = profile.profile_pic;
+  if (typeof profile.follower_count === "number") patch.follower_count = profile.follower_count;
+
+  await db().from("mc_contacts").update(patch).eq("id", contactId);
+  return { followsUs };
+}
+
 export async function getOrCreateConversation(accountId: string, contactId: string) {
   const supabase = db();
 

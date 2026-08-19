@@ -1,5 +1,10 @@
 import { db } from "../supabase";
-import { getOrCreateConversation, recordMessage, upsertContact } from "../repo";
+import {
+  getOrCreateConversation,
+  recordMessage,
+  refreshContactProfile,
+  upsertContact,
+} from "../repo";
 import {
   MetaError,
   sendButtons,
@@ -83,6 +88,8 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
   let contactId = ctx.contactId;
   let commentToUse = ctx.commentId ?? null;
   let steps = 0;
+  // Marcado quando a API nao soube dizer se a pessoa segue; vai pro log do run.
+  let unknownFollowStatus = false;
 
   const finish = async (status: string, error?: string) => {
     if (run) {
@@ -93,6 +100,9 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
           error: error ?? null,
           steps_executed: steps,
           finished_at: new Date().toISOString(),
+          ...(unknownFollowStatus && !error
+            ? { error: "Aviso: a API nao informou se a pessoa te segue; tratei como nao seguidor." }
+            : {}),
         })
         .eq("id", run.id);
     }
@@ -208,8 +218,26 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     if (!contact) return false;
 
     if (field === "is_user_follow_business") {
-      const v = Boolean(contact.is_user_follow_business);
-      return op === "is_false" ? !v : v;
+      // Sempre rebusca: seguir/deixar de seguir muda a qualquer momento, e o
+      // botao "ja te segui" depende de ver o estado AGORA, nao o do cadastro.
+      let follows: boolean | null =
+        typeof contact.is_user_follow_business === "boolean"
+          ? contact.is_user_follow_business
+          : null;
+
+      if (igsid) {
+        const fresh = await refreshContactProfile(contactId, igsid);
+        follows = fresh.followsUs;
+      }
+
+      // null = a API nao informou. Tratamos como "nao segue" para o portao
+      // continuar fechado, mas registramos para dar pra diagnosticar depois.
+      if (follows === null) {
+        unknownFollowStatus = true;
+        follows = false;
+      }
+
+      return op === "is_false" ? !follows : follows;
     }
     if (field === "follower_count") {
       const n = contact.follower_count ?? 0;
