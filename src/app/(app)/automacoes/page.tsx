@@ -278,6 +278,7 @@ function CreateDrawer({
     "Opa! Antes de te mandar, me segue aqui 👉 é rapidinho.\n\nDepois toca no botão abaixo que eu te envio na hora 👇",
   );
   const [gateButton, setGateButton] = useState("JÁ TE SEGUI ✅");
+  const [gateOpener, setGateOpener] = useState("Opa! Já tô te mandando aqui 👇");
   const [mediaId, setMediaId] = useState(initialMediaId ?? "");
   const [media, setMedia] = useState<Media[]>([]);
   const [saving, setSaving] = useState(false);
@@ -317,6 +318,7 @@ function CreateDrawer({
         follow_gate_enabled: followGate,
         follow_gate_text: gateText,
         follow_gate_button: gateButton,
+        follow_gate_opener: gateOpener,
       }),
     });
 
@@ -463,6 +465,22 @@ function CreateDrawer({
             ) : (
               <>
                 <div>
+                  <label className="label" htmlFor="gate-opener">
+                    Primeira mensagem (a ponte, vale pra todo mundo)
+                  </label>
+                  <input
+                    id="gate-opener"
+                    className="input"
+                    value={gateOpener}
+                    onChange={(e) => setGateOpener(e.target.value)}
+                  />
+                  <p className="mt-1.5 text-xs text-[var(--fg-dim)]">
+                    Só no comentário → DM. Ela abre a conversa pra eu conseguir saber se a pessoa te
+                    segue — sem isso, o Instagram não conta.
+                  </p>
+                </div>
+
+                <div>
                   <label className="label" htmlFor="gate-text">
                     Mensagem para quem NÃO te segue
                   </label>
@@ -489,10 +507,10 @@ function CreateDrawer({
                 </div>
 
                 <p className="text-xs leading-relaxed text-[var(--fg-dim)]">
-                  Ao tocar no botão eu consulto o Instagram de novo. Se já estiver seguindo, o
-                  conteúdo sai na hora; se não, recebe o pedido outra vez. Quando a API não informa
-                  o status, trato como <strong>não seguidor</strong> — o motivo fica registrado no
-                  log da execução.
+                  Depois da ponte eu já consigo checar quem segue. O seguidor recebe o conteúdo
+                  direto; quem não segue recebe o pedido, e o botão libera assim que ele seguir.
+                  Se o Instagram ainda não informar o status, trato como <strong>não seguidor</strong>{" "}
+                  e o botão resolve — o motivo fica no log da execução.
                 </p>
               </>
             )}

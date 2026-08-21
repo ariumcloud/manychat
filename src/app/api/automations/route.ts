@@ -22,6 +22,7 @@ type Body = {
   follow_gate_enabled?: boolean;
   follow_gate_text?: string;
   follow_gate_button?: string;
+  follow_gate_opener?: string;
 };
 
 /** Monta os blocos que entregam o conteúdo de verdade. */
@@ -90,15 +91,34 @@ async function postHandler(req: Request) {
   const edges: FlowEdge[] = [];
 
   if (gateOn) {
+    // Comentário → DM: a API só sabe se a pessoa te segue DEPOIS que existe uma
+    // conversa. Então mandamos uma ponte primeiro (que abre a conversa via
+    // private reply e resolve o IGSID real), e só aí o portão decide. Sem isso,
+    // o seguidor que comenta é sempre tratado como "não segue".
+    const isComment = (body.kind ?? "comment_keyword") === "comment_keyword";
+    const gateEntry = isComment ? "opener" : "trigger";
+
+    if (isComment) {
+      nodes.push({
+        id: "opener",
+        type: "text",
+        position: { x: 340, y: 180 },
+        data: {
+          text: body.follow_gate_opener?.trim() || "Opa! Já tô te mandando aqui 👇",
+        },
+      });
+      edges.push({ id: "e-trigger-opener", source: "trigger", target: "opener" });
+    }
+
     nodes.push({
       id: "gate",
       type: "condition",
-      position: { x: 340, y: 180 },
+      position: { x: isComment ? 620 : 340, y: 180 },
       data: { field: "is_user_follow_business", op: "is_true" },
     });
-    edges.push({ id: "e-trigger-gate", source: "trigger", target: "gate" });
+    edges.push({ id: "e-entry-gate", source: gateEntry, target: "gate" });
 
-    const content = contentNodes(body, 640, 60);
+    const content = contentNodes(body, isComment ? 900 : 640, 60);
     nodes.push(...content.nodes);
     edges.push(...content.edges);
     edges.push({ id: "e-gate-yes", source: "gate", target: "msg", sourceHandle: "yes" });
@@ -106,7 +126,7 @@ async function postHandler(req: Request) {
     nodes.push({
       id: "ask-follow",
       type: "quickReplies",
-      position: { x: 640, y: 340 },
+      position: { x: isComment ? 900 : 640, y: 340 },
       data: {
         text: gateText,
         // payload preenchido depois do insert, quando o id do fluxo existe
