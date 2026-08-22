@@ -24,6 +24,7 @@ Já existe um `.env.local` na raiz, copiado do `.env.example`. Preencha:
 | `IG_USER_ID` | opcional — o app descobre sozinho |
 | `DASHBOARD_PASSWORD` | senha pra entrar no painel |
 | `AUTH_SECRET` | string longa e aleatória, pra assinar o cookie de sessão |
+| `APP_BASE_URL` | opcional fora da Vercel — o domínio público deste app (`https://…`), usado nos links rastreados dos botões. Sem ele o botão vai com o link original, sem medição |
 
 > **Nunca** cole o token em chat, issue, print ou commit. O `.gitignore` já
 > bloqueia `.env*`. Se um token vazar, revogue no painel do Meta e gere outro.

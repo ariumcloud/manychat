@@ -57,9 +57,10 @@ function contentNodes(body: Body, x: number, y: number) {
  *               ├─ sim → conteúdo de verdade
  *               └─ não → pedido para seguir + botão "já te segui"
  *
- * O botão devolve o payload `flow:<id>`, que reexecuta este mesmo fluxo. Como o
- * motor rebusca o perfil ao avaliar a condição, a segunda passada já enxerga
- * quem acabou de seguir.
+ * O botão devolve o payload `flow:<id>@gate`, que retoma este mesmo fluxo no
+ * portão — não do início, senão a mensagem-ponte sairia de novo a cada toque.
+ * Como o motor rebusca o perfil ao avaliar a condição, a segunda passada já
+ * enxerga quem acabou de seguir.
  */
 async function postHandler(req: Request) {
   const account = await getAccount();
@@ -104,7 +105,10 @@ async function postHandler(req: Request) {
         type: "text",
         position: { x: 340, y: 180 },
         data: {
-          text: body.follow_gate_opener?.trim() || "Opa! Já tô te mandando aqui 👇",
+          // Esta mensagem sai antes de o portão saber se a pessoa te segue, então
+          // ela não pode prometer a entrega: quem não segue receberia o "já tô te
+          // mandando" e, logo depois, um pedido para seguir — parece bug.
+          text: body.follow_gate_opener?.trim() || "Opa! Vi seu comentário 👀 Só um segundo…",
         },
       });
       edges.push({ id: "e-trigger-opener", source: "trigger", target: "opener" });
@@ -125,12 +129,21 @@ async function postHandler(req: Request) {
 
     nodes.push({
       id: "ask-follow",
-      type: "quickReplies",
+      type: "buttons",
       position: { x: isComment ? 900 : 640, y: 340 },
       data: {
         text: gateText,
+        // Botão de verdade (template), não quick reply: a mensagem diz "toque no
+        // botão abaixo" e o chip de resposta rápida some da conversa. Se o
+        // Instagram recusar o template, o motor cai para quick reply sozinho.
         // payload preenchido depois do insert, quando o id do fluxo existe
-        options: [{ label: (body.follow_gate_button || "JÁ TE SEGUI ✅").slice(0, 20), payload: "" }],
+        buttons: [
+          {
+            kind: "reply",
+            label: (body.follow_gate_button || "JÁ TE SEGUI ✅").slice(0, 20),
+            payload: "",
+          },
+        ],
       },
     });
     edges.push({ id: "e-gate-no", source: "gate", target: "ask-follow", sourceHandle: "no" });
@@ -155,7 +168,9 @@ async function postHandler(req: Request) {
 
   if (flowError) return NextResponse.json({ error: flowError.message }, { status: 500 });
 
-  // Só agora existe um id para o botão "já te segui" apontar.
+  // Só agora existe um id para o botão "já te segui" apontar. O "@gate" faz a
+  // execução voltar direto para o portão: reexecutar do gatilho reenviaria a
+  // mensagem-ponte a cada toque no botão.
   if (gateOn) {
     const patched = nodes.map((n) =>
       n.id === "ask-follow"
@@ -163,7 +178,9 @@ async function postHandler(req: Request) {
             ...n,
             data: {
               ...n.data,
-              options: (n.data.options ?? []).map((o) => ({ ...o, payload: `flow:${flow.id}` })),
+              buttons: (n.data.buttons ?? []).map((b) =>
+                b.kind === "reply" ? { ...b, payload: `flow:${flow.id}@gate` } : b,
+              ),
             },
           }
         : n,

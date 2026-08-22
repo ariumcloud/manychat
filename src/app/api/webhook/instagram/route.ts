@@ -204,10 +204,21 @@ async function handleMessaging(event: MessagingEvent) {
     payload: payload ? { payload } : null,
   });
 
-  // Quick reply / botao clicado carrega o payload "flow:<id>" para continuar.
+  // Botao / quick reply carrega o payload "flow:<id>" para continuar, ou
+  // "flow:<id>@<no>" para retomar num ponto especifico. E o "@<no>" que evita
+  // reenviar as mensagens que ja sairam antes do botao — o "ja te segui", por
+  // exemplo, volta direto para o portao.
   if (payload?.startsWith("flow:")) {
-    const flow = await loadFlow(payload.slice(5));
+    const [flowId, resumeNodeId] = payload.slice(5).split("@");
+    const flow = await loadFlow(flowId);
     if (flow) {
+      // Fluxos criados antes do "@<no>" mandam so "flow:<id>". Quem toca num
+      // botao desses quer que a condicao seja reavaliada — nao rever as
+      // mensagens que vieram antes dela. Entao a retomada cai na primeira
+      // condicao do fluxo, se houver.
+      const resumeAt =
+        resumeNodeId || flow.nodes?.find((n) => n.type === "condition")?.id || null;
+
       await runFlow(flow, {
         accountId: account.id,
         contactId: contact.id,
@@ -216,6 +227,7 @@ async function handleMessaging(event: MessagingEvent) {
         lastText: text,
         source: "dm",
         sourceRef: event.message?.mid ?? null,
+        startNodeId: resumeAt,
       });
       return;
     }

@@ -278,7 +278,7 @@ function CreateDrawer({
     "Opa! Antes de te mandar, me segue aqui 👉 é rapidinho.\n\nDepois toca no botão abaixo que eu te envio na hora 👇",
   );
   const [gateButton, setGateButton] = useState("JÁ TE SEGUI ✅");
-  const [gateOpener, setGateOpener] = useState("Opa! Já tô te mandando aqui 👇");
+  const [gateOpener, setGateOpener] = useState("Opa! Vi seu comentário 👀 Só um segundo…");
   const [mediaId, setMediaId] = useState(initialMediaId ?? "");
   const [media, setMedia] = useState<Media[]>([]);
   const [saving, setSaving] = useState(false);
@@ -476,7 +476,9 @@ function CreateDrawer({
                   />
                   <p className="mt-1.5 text-xs text-[var(--fg-dim)]">
                     Só no comentário → DM. Ela abre a conversa pra eu conseguir saber se a pessoa te
-                    segue — sem isso, o Instagram não conta.
+                    segue — sem isso, o Instagram não conta. Ela sai <strong>antes</strong> dessa
+                    checagem, então não prometa o link aqui: quem não te segue receberia a promessa e,
+                    logo depois, o pedido pra seguir.
                   </p>
                 </div>
 
@@ -508,7 +510,8 @@ function CreateDrawer({
 
                 <p className="text-xs leading-relaxed text-[var(--fg-dim)]">
                   Depois da ponte eu já consigo checar quem segue. O seguidor recebe o conteúdo
-                  direto; quem não segue recebe o pedido, e o botão libera assim que ele seguir.
+                  direto; quem não segue recebe o pedido com um botão de verdade embaixo da mensagem,
+                  que libera o conteúdo assim que ele seguir — sem repetir a ponte.
                   Se o Instagram ainda não informar o status, trato como <strong>não seguidor</strong>{" "}
                   e o botão resolve — o motivo fica no log da execução.
                 </p>

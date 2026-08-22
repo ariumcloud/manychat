@@ -36,6 +36,12 @@ export type RunContext = {
   source: "comment" | "dm" | "story" | "manual";
   sourceRef?: string | null;
   triggerId?: string | null;
+  /**
+   * Retoma o fluxo neste no em vez de comecar do gatilho. E o que faz o botao
+   * "ja te segui" voltar direto para o portao — sem isto o fluxo reexecuta do
+   * inicio e a mensagem-ponte sai de novo.
+   */
+  startNodeId?: string | null;
 };
 
 export type RunResult = {
@@ -45,8 +51,12 @@ export type RunResult = {
   error?: string;
 };
 
-function startNode(flow: Flow): FlowNode | null {
+function startNode(flow: Flow, startNodeId?: string | null): FlowNode | null {
   const nodes = flow.nodes ?? [];
+  if (startNodeId) {
+    const resume = nodes.find((n) => n.id === startNodeId);
+    if (resume) return resume;
+  }
   const trigger = nodes.find((n) => n.type === "trigger");
   if (trigger) return trigger;
   const targets = new Set((flow.edges ?? []).map((e) => e.target));
@@ -55,9 +65,12 @@ function startNode(flow: Flow): FlowNode | null {
 
 function nextNode(flow: Flow, from: FlowNode, handle?: string): FlowNode | null {
   const edges: FlowEdge[] = flow.edges ?? [];
-  const edge =
-    edges.find((e) => e.source === from.id && (handle ? e.sourceHandle === handle : true)) ??
-    edges.find((e) => e.source === from.id);
+  // Com handle ("yes"/"no") a saida e exata: se aquele ramo nao esta ligado, o
+  // fluxo acaba ali. Cair na outra saida mandaria o pedido de seguir para quem
+  // ja segue — exatamente o contrario do que a condicao decidiu.
+  const edge = handle
+    ? edges.find((e) => e.source === from.id && e.sourceHandle === handle)
+    : edges.find((e) => e.source === from.id);
   if (!edge) return null;
   return (flow.nodes ?? []).find((n) => n.id === edge.target) ?? null;
 }
@@ -136,16 +149,25 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     if (commentToUse) {
       const res = await sendPrivateReply(commentToUse, text, quickReplies);
       commentToUse = null;
-      if (res.recipient_id && !igsid) {
+
+      // O id que vem no webhook de comentario nem sempre e o mesmo que a API de
+      // mensagens usa. O recipient_id da private reply e o oficial: e com ele
+      // que da para consultar o perfil (e o "te segue?") e enviar o resto. Por
+      // isso ele vale mais do que o id do comentario, e nao so quando falta um.
+      if (res.recipient_id && res.recipient_id !== igsid) {
         igsid = res.recipient_id;
         const placeholderId = contactId;
         const contact = await upsertContact(ctx.accountId, igsid);
         contactId = contact.id;
         conversationId = null;
 
-        // Agora que sabemos quem e de verdade, o contato "pending:<comment_id>"
-        // criado la no webhook vira lixo. Repassa o run e apaga.
         if (placeholderId !== contactId) {
+          if (run) {
+            await supabase.from("mc_flow_runs").update({ contact_id: contactId }).eq("id", run.id);
+          }
+
+          // O contato "pending:<comment_id>" criado la no webhook so existia ate
+          // sabermos quem e de verdade. Um contato real fica onde esta.
           const { data: old } = await supabase
             .from("mc_contacts")
             .select("igsid")
@@ -153,9 +175,6 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
             .maybeSingle();
 
           if (old?.igsid?.startsWith("pending:")) {
-            if (run) {
-              await supabase.from("mc_flow_runs").update({ contact_id: contactId }).eq("id", run.id);
-            }
             await supabase.from("mc_contacts").delete().eq("id", placeholderId);
           }
         }
@@ -261,7 +280,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     }
   };
 
-  let node = startNode(flow);
+  let node = startNode(flow, ctx.startNodeId);
   if (!node) return finish("skipped", "Fluxo vazio.");
 
   try {
@@ -288,21 +307,23 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
             // Private reply so aceita texto; manda a legenda primeiro pra abrir a conversa.
             await deliver(node.data.text || "  ", undefined, node.id);
           }
-          if (igsid) {
-            const res = await sendImage(igsid, node.data.url);
-            const convId = await ensureConversation();
-            await recordMessage({
-              accountId: ctx.accountId,
-              conversationId: convId,
-              direction: "out",
-              sender: "bot",
-              type: "image",
-              text: node.data.text ?? null,
-              mid: res.message_id ?? null,
-              attachments: [{ type: "image", url: node.data.url }],
-              flowId: flow.id,
-            });
-          }
+          // Sem IGSID nao da para anexar nada. Falhar aqui e melhor do que
+          // marcar o run como concluido tendo entregue so o texto.
+          if (!igsid) throw new Error("Sem IGSID para enviar a imagem.");
+
+          const res = await sendImage(igsid, node.data.url);
+          const convId = await ensureConversation();
+          await recordMessage({
+            accountId: ctx.accountId,
+            conversationId: convId,
+            direction: "out",
+            sender: "bot",
+            type: "image",
+            text: node.data.text ?? null,
+            mid: res.message_id ?? null,
+            attachments: [{ type: "image", url: node.data.url }],
+            flowId: flow.id,
+          });
           break;
         }
 
@@ -327,24 +348,52 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
                 : ({ type: "postback", title: b.label, payload: b.payload } as const),
             ),
           );
+          let textAlreadySent = false;
           if (commentToUse) {
             // Template exige recipient.id: abre a conversa com o texto primeiro.
             await deliver(node.data.text || "  ", undefined, node.id);
+            textAlreadySent = true;
           }
-          if (igsid && buttons.length) {
-            const res = await sendButtons(igsid, node.data.text ?? " ", buttons);
-            const convId = await ensureConversation();
-            await recordMessage({
-              accountId: ctx.accountId,
-              conversationId: convId,
-              direction: "out",
-              sender: "bot",
-              type: "template",
-              text: node.data.text ?? null,
-              mid: res.message_id ?? null,
-              payload: { buttons },
-              flowId: flow.id,
-            });
+          if (buttons.length) {
+            if (!igsid) throw new Error("Sem IGSID para enviar os botoes.");
+            const text = node.data.text ?? " ";
+            try {
+              const res = await sendButtons(igsid, text, buttons);
+              const convId = await ensureConversation();
+              await recordMessage({
+                accountId: ctx.accountId,
+                conversationId: convId,
+                direction: "out",
+                sender: "bot",
+                type: "template",
+                text: node.data.text ?? null,
+                mid: res.message_id ?? null,
+                payload: { buttons },
+                flowId: flow.id,
+              });
+            } catch (err) {
+              // O template e o unico jeito de ter botao de verdade, mas se o
+              // Instagram recusar (link invalido, template indisponivel) nao da
+              // para simplesmente perder a mensagem: a pessoa ficaria com o
+              // "toque no botao abaixo" e nenhum botao. Manda em texto:
+              // os links entram no corpo, os de postback viram quick reply.
+              if (!(err instanceof MetaError)) throw err;
+              console.error("[flow] template recusado, caindo para texto:", err.message);
+
+              const urls = buttons.flatMap((b) => (b.type === "web_url" ? [b.url] : []));
+              const replies = buttons.flatMap((b) =>
+                b.type === "postback" ? [{ title: b.title, payload: b.payload }] : [],
+              );
+              // O texto ja saiu como private reply neste caso; repetir seria uma
+              // mensagem duplicada. Mas quick reply nao existe sem mensagem —
+              // se e so isso que sobrou, o texto vai junto.
+              const parts = [textAlreadySent ? "" : text, ...urls].filter(Boolean);
+              const fallbackText = parts.join("\n\n") || (replies.length ? text : "");
+
+              if (fallbackText) {
+                await deliver(fallbackText, replies.length ? replies : undefined, node.id);
+              }
+            }
           }
           break;
         }
