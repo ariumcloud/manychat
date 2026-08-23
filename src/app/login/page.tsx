@@ -34,15 +34,21 @@ function LoginForm() {
   }
 
   return (
-    <form onSubmit={submit} className="card w-full max-w-sm p-7">
-      <div className="mb-6 flex items-center gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
-          <Lock size={18} />
+    <form onSubmit={submit} className="card rise w-full max-w-sm p-7">
+      <div className="mb-6">
+        <div
+          className="grid h-11 w-11 place-items-center rounded-2xl text-lg font-bold text-white"
+          style={{
+            background: "var(--brand)",
+            boxShadow: "0 10px 30px -10px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.25)",
+          }}
+        >
+          F
         </div>
-        <div>
-          <h1 className="text-base font-semibold">Entrar no painel</h1>
-          <p className="text-xs text-[var(--fg-muted)]">A senha está no seu .env.local</p>
-        </div>
+        <h1 className="mt-4 text-lg font-semibold tracking-tight">Entrar no painel</h1>
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--fg-muted)]">
+          <Lock size={12} /> A senha está no seu .env.local
+        </p>
       </div>
 
       <label className="label" htmlFor="password">
@@ -70,10 +76,26 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="grid min-h-screen place-items-center p-6">
-      <Suspense>
-        <LoginForm />
-      </Suspense>
+    <main className="relative grid min-h-screen place-items-center overflow-hidden p-6">
+      {/* Aurora de fundo: é o primeiro quadro que alguém vê do painel. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(50% 45% at 50% 8%, rgba(124,92,255,0.16), transparent 70%)," +
+            "radial-gradient(38% 38% at 82% 88%, rgba(249,87,142,0.1), transparent 70%)," +
+            "radial-gradient(38% 38% at 14% 82%, rgba(91,107,255,0.1), transparent 70%)",
+        }}
+      />
+      <div className="relative">
+        <Suspense>
+          <LoginForm />
+        </Suspense>
+        <p className="mt-6 text-center text-xs text-[var(--fg-dim)]">
+          Fluxo · Instagram no automático
+        </p>
+      </div>
     </main>
   );
 }

@@ -1,20 +1,38 @@
 @import "tailwindcss";
 @import "@xyflow/react/dist/style.css";
 
+/*
+ * Tema escuro do painel. Os tokens antigos continuam todos aqui com os mesmos
+ * nomes — as páginas referenciam var(--fg-dim), var(--bg-elev) etc. direto no
+ * JSX, então renomear qualquer um quebraria tela por tela.
+ */
 :root {
-  --bg: #0b0d14;
-  --bg-elev: #12151f;
-  --bg-elev-2: #181c28;
-  --border: #242938;
-  --border-strong: #333a4d;
-  --fg: #e9ecf4;
-  --fg-muted: #949cb0;
-  --fg-dim: #626a7e;
+  --bg: #0a0c13;
+  --bg-sidebar: #06070c;
+  --bg-elev: #0f111a;
+  --bg-elev-2: #171a26;
+  --border: #1e2230;
+  --border-strong: #2c3242;
+  --fg: #eef0f7;
+  --fg-muted: #9aa2b8;
+  --fg-dim: #6b7387;
   --accent: #7c5cff;
-  --accent-soft: rgba(124, 92, 255, 0.14);
+  --accent-2: #a44dff;
+  --accent-3: #f9578e;
+  --accent-soft: rgba(124, 92, 255, 0.13);
+  --accent-glow: rgba(124, 92, 255, 0.35);
   --success: #34d399;
   --warn: #fbbf24;
   --danger: #f87171;
+
+  /* A marca em gradiente. Usada com parcimônia: logo, botão primário, ativo. */
+  --brand: linear-gradient(135deg, var(--accent-3) 0%, var(--accent-2) 48%, #5b6bff 100%);
+
+  /* Profundidade. Sombra + fio de luz no topo é o que dá o ar de vidro. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px -4px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 18px 48px -12px rgba(0, 0, 0, 0.65);
+  --hairline: inset 0 1px 0 rgba(255, 255, 255, 0.045);
 }
 
 @theme inline {
@@ -43,6 +61,11 @@ body {
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(124, 92, 255, 0.35);
 }
 
 ::-webkit-scrollbar {
@@ -57,13 +80,56 @@ body {
   border-radius: 99px;
   border: 3px solid var(--bg);
 }
+::-webkit-scrollbar-thumb:hover {
+  background: #3b4256;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
 
 @layer components {
+  /* --- Superfícies ------------------------------------------------------ */
+
   .card {
-    background: var(--bg-elev);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.022), transparent 120px),
+      var(--bg-elev);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm), var(--hairline);
   }
+
+  /* Card que reage ao mouse — para grades clicáveis (posts, automações). */
+  .card-hover {
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md), var(--hairline);
+  }
+
+  /* Brilho ambiente do topo da área de conteúdo. Puro enfeite, mas é ele que
+     tira o cinza chapado do vídeo. */
+  .ambient {
+    position: relative;
+    isolation: isolate;
+  }
+  .ambient::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 420px;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(60% 100% at 12% 0%, rgba(124, 92, 255, 0.11), transparent 70%),
+      radial-gradient(45% 100% at 78% 0%, rgba(249, 87, 142, 0.06), transparent 70%);
+  }
+
+  /* --- Botões ----------------------------------------------------------- */
 
   .btn {
     display: inline-flex;
@@ -71,35 +137,50 @@ body {
     justify-content: center;
     gap: 0.45rem;
     border-radius: 10px;
-    padding: 0.5rem 0.9rem;
+    padding: 0.55rem 0.95rem;
     font-size: 0.875rem;
     font-weight: 500;
     line-height: 1.2;
-    transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    transition: background 0.16s, border-color 0.16s, box-shadow 0.16s, transform 0.12s,
+      opacity 0.16s;
     cursor: pointer;
     white-space: nowrap;
   }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
   .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
   }
 
   .btn-primary {
-    background: var(--accent);
+    background: var(--brand);
+    background-size: 140% 140%;
     color: #fff;
+    box-shadow: 0 6px 20px -8px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+  /* Gradiente com opacidade baixa vira uma mancha; desabilitado fica chapado. */
+  .btn-primary:disabled {
+    opacity: 1;
+    background: var(--bg-elev-2);
+    color: var(--fg-dim);
+    box-shadow: inset 0 0 0 1px var(--border);
   }
   .btn-primary:hover:not(:disabled) {
-    background: #6a49f2;
+    background-position: 100% 0;
+    box-shadow: 0 10px 28px -8px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   }
 
   .btn-ghost {
     background: var(--bg-elev-2);
     color: var(--fg);
     border: 1px solid var(--border);
+    box-shadow: var(--hairline);
   }
   .btn-ghost:hover:not(:disabled) {
     border-color: var(--border-strong);
-    background: #1e2331;
+    background: #1d2130;
   }
 
   .btn-danger {
@@ -112,20 +193,26 @@ body {
     background: rgba(248, 113, 113, 0.08);
   }
 
+  /* --- Formulário ------------------------------------------------------- */
+
   .input {
     width: 100%;
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 0.55rem 0.75rem;
+    padding: 0.6rem 0.8rem;
     font-size: 0.875rem;
     color: var(--fg);
     outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: border-color 0.16s, box-shadow 0.16s, background 0.16s;
+  }
+  .input:hover:not(:focus) {
+    border-color: var(--border-strong);
   }
   .input:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
+    background: var(--bg-elev);
   }
   .input::placeholder {
     color: var(--fg-dim);
@@ -136,35 +223,151 @@ body {
     font-size: 0.75rem;
     font-weight: 500;
     color: var(--fg-muted);
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.4rem;
   }
+
+  /* --- Chips ------------------------------------------------------------ */
 
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
     border-radius: 999px;
-    padding: 0.15rem 0.55rem;
+    padding: 0.2rem 0.6rem;
     font-size: 0.7rem;
     font-weight: 500;
     border: 1px solid var(--border);
     background: var(--bg-elev-2);
     color: var(--fg-muted);
+    white-space: nowrap;
   }
   .chip-ok {
     color: var(--success);
-    border-color: rgba(52, 211, 153, 0.3);
+    border-color: rgba(52, 211, 153, 0.28);
     background: rgba(52, 211, 153, 0.1);
   }
   .chip-warn {
     color: var(--warn);
-    border-color: rgba(251, 191, 36, 0.3);
+    border-color: rgba(251, 191, 36, 0.28);
     background: rgba(251, 191, 36, 0.1);
   }
   .chip-danger {
     color: var(--danger);
-    border-color: rgba(248, 113, 113, 0.3);
+    border-color: rgba(248, 113, 113, 0.28);
     background: rgba(248, 113, 113, 0.1);
+  }
+
+  /* Bolinha de status com halo — lê bem em vídeo. */
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--fg-dim);
+    box-shadow: 0 0 0 3px rgba(107, 115, 135, 0.16);
+    flex: none;
+  }
+  .dot-ok {
+    background: var(--success);
+    box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.16);
+  }
+  .dot-danger {
+    background: var(--danger);
+    box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.16);
+  }
+
+  /* --- Navegação -------------------------------------------------------- */
+
+  .nav-group {
+    padding: 0 0.75rem;
+    margin-bottom: 0.15rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+  }
+
+  .nav-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    border-radius: 10px;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.8125rem;
+    font-weight: 450;
+    color: var(--fg-muted);
+    transition: color 0.16s, background 0.16s;
+  }
+  .nav-item:hover {
+    color: var(--fg);
+    background: rgba(255, 255, 255, 0.035);
+  }
+  /* A barrinha da esquerda cresce a partir do centro quando fica ativa. */
+  .nav-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    height: 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--brand);
+    transform: translateY(-50%);
+    transition: height 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .nav-item-active {
+    color: var(--fg);
+    font-weight: 550;
+    background: linear-gradient(90deg, rgba(124, 92, 255, 0.22), rgba(124, 92, 255, 0.05));
+    box-shadow: var(--hairline), 0 1px 12px -4px var(--accent-glow);
+  }
+  .nav-item-active::before {
+    height: 20px;
+  }
+
+  /* --- Tabelas / listas ------------------------------------------------- */
+
+  .row-hover {
+    transition: background 0.14s;
+  }
+  .row-hover:hover {
+    background: rgba(255, 255, 255, 0.022);
+  }
+
+  /* --- Entrada de tela --------------------------------------------------- */
+
+  .rise {
+    animation: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .rise-1 {
+    animation-delay: 0.04s;
+  }
+  .rise-2 {
+    animation-delay: 0.09s;
+  }
+  .rise-3 {
+    animation-delay: 0.14s;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .card-hover,
+  .nav-item::before {
+    animation: none !important;
+    transition: none !important;
   }
 }
 

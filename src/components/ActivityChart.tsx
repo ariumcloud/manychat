@@ -15,7 +15,7 @@ export type ActivityPoint = { day: string; dms: number; comentarios: number };
 export function ActivityChart({ data }: { data: ActivityPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <AreaChart data={data} margin={{ top: 6, right: 6, left: -22, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 6, right: 8, left: -8, bottom: 0 }}>
         <defs>
           <linearGradient id="gDms" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#7c5cff" stopOpacity={0.45} />
@@ -26,35 +26,38 @@ export function ActivityChart({ data }: { data: ActivityPoint[] }) {
             <stop offset="100%" stopColor="#34d399" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid stroke="#242938" vertical={false} />
+        <CartesianGrid stroke="#1e2230" vertical={false} strokeDasharray="3 3" />
         <XAxis
           dataKey="day"
-          tick={{ fill: "#626a7e", fontSize: 11 }}
+          tick={{ fill: "#6b7387", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
-          tick={{ fill: "#626a7e", fontSize: 11 }}
+          tick={{ fill: "#6b7387", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           allowDecimals={false}
-          width={40}
+          width={34}
         />
         <Tooltip
+          cursor={{ stroke: "#2c3242", strokeWidth: 1 }}
           contentStyle={{
-            background: "#12151f",
-            border: "1px solid #333a4d",
-            borderRadius: 10,
+            background: "rgba(15,17,26,0.96)",
+            border: "1px solid #2c3242",
+            borderRadius: 12,
             fontSize: 12,
+            boxShadow: "0 18px 48px -12px rgba(0,0,0,0.65)",
+            padding: "8px 12px",
           }}
-          labelStyle={{ color: "#949cb0" }}
+          labelStyle={{ color: "#9aa2b8" }}
         />
         <Area
           type="monotone"
           dataKey="dms"
           name="DMs enviadas"
           stroke="#7c5cff"
-          strokeWidth={2}
+          strokeWidth={2.4}
           fill="url(#gDms)"
         />
         <Area
@@ -62,7 +65,7 @@ export function ActivityChart({ data }: { data: ActivityPoint[] }) {
           dataKey="comentarios"
           name="Comentários"
           stroke="#34d399"
-          strokeWidth={2}
+          strokeWidth={2.4}
           fill="url(#gComments)"
         />
       </AreaChart>

@@ -47,7 +47,7 @@ const PALETTE: Array<{ kind: NodeKind; label: string; icon: typeof MessageSquare
 
 const edgeDefaults = {
   animated: true,
-  markerEnd: { type: MarkerType.ArrowClosed, color: "#333a4d" },
+  markerEnd: { type: MarkerType.ArrowClosed, color: "#2c3242" },
 };
 
 export function FlowBuilder({ flow }: { flow: Flow }) {
@@ -222,7 +222,7 @@ function Canvas({ flow }: { flow: Flow }) {
             fitView
             proOptions={{ hideAttribution: true }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#242938" />
+            <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#1e2230" />
             <Controls showInteractive={false} />
           </ReactFlow>
         </div>
