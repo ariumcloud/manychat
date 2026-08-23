@@ -152,13 +152,18 @@ export async function refreshContactProfile(
   const followsUs =
     typeof profile.is_user_follow_business === "boolean" ? profile.is_user_follow_business : null;
 
-  const patch: Record<string, unknown> = { is_user_follow_business: followsUs };
+  // So grava quando a API respondeu: escrever null por cima apagaria um
+  // "segue" ja confirmado, e o portao voltaria a barrar quem ja passou.
+  const patch: Record<string, unknown> = {};
+  if (followsUs !== null) patch.is_user_follow_business = followsUs;
   if (profile.username) patch.username = profile.username;
   if (profile.name) patch.name = profile.name;
   if (profile.profile_pic) patch.profile_picture_url = profile.profile_pic;
   if (typeof profile.follower_count === "number") patch.follower_count = profile.follower_count;
 
-  await db().from("mc_contacts").update(patch).eq("id", contactId);
+  if (Object.keys(patch).length) {
+    await db().from("mc_contacts").update(patch).eq("id", contactId);
+  }
   return { followsUs };
 }
 

@@ -104,6 +104,9 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
   let steps = 0;
   // Marcado quando a API nao soube dizer se a pessoa segue; vai pro log do run.
   let unknownFollowStatus = false;
+  // Portao "te segue?" avaliado antes de existir conversa: fica guardado para
+  // ser refeito assim que a primeira mensagem abrir a conversa.
+  let pendingFollowGate: FlowNode | null = null;
 
   const finish = async (status: string, error?: string) => {
     if (run) {
@@ -247,13 +250,25 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
 
       if (igsid) {
         const fresh = await refreshContactProfile(contactId, igsid);
-        follows = fresh.followsUs;
+        // So substitui quando a API realmente respondeu. Um "nao sei" nao pode
+        // apagar um "segue" que ja tinhamos conferido antes — e e exatamente
+        // isso que devolve o conteudo direto a quem ja passou pelo portao.
+        if (fresh.followsUs !== null) follows = fresh.followsUs;
       }
 
       // null = a API nao informou. Tratamos como "nao segue" para o portao
-      // continuar fechado, mas registramos para dar pra diagnosticar depois.
+      // continuar fechado.
       if (follows === null) {
-        unknownFollowStatus = true;
+        if (commentToUse) {
+          // Esperado: num comentario ainda nao existe conversa, e sem conversa o
+          // Instagram nao responde "te segue?". Nao e erro — e a deixa para
+          // refazer a pergunta assim que a primeira mensagem abrir a conversa.
+          pendingFollowGate = node;
+        } else {
+          // Aqui a conversa ja existe e mesmo assim nao veio resposta. Isso sim
+          // vai pro log, para dar pra diagnosticar depois.
+          unknownFollowStatus = true;
+        }
         follows = false;
       }
 
@@ -349,14 +364,17 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
             ),
           );
           let textAlreadySent = false;
+          let text = node.data.text ?? " ";
           if (commentToUse) {
             // Template exige recipient.id: abre a conversa com o texto primeiro.
             await deliver(node.data.text || "  ", undefined, node.id);
             textAlreadySent = true;
+            // O texto ja saiu; o template precisa de um corpo, mas repetir o
+            // mesmo texto seria a mesma mensagem duas vezes seguidas.
+            text = "Toque no botão abaixo 👇";
           }
           if (buttons.length) {
             if (!igsid) throw new Error("Sem IGSID para enviar os botoes.");
-            const text = node.data.text ?? " ";
             try {
               const res = await sendButtons(igsid, text, buttons);
               const convId = await ensureConversation();
@@ -414,6 +432,19 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
       }
 
       steps += 1;
+
+      // A conversa acabou de abrir (a primeira mensagem saiu como private reply
+      // e devolveu o IGSID real). So agora da para saber se a pessoa te segue —
+      // se seguia, o resto do ramo "nao" nao faz sentido e o conteudo emenda.
+      if (pendingFollowGate && !commentToUse && igsid) {
+        const gate = pendingFollowGate;
+        pendingFollowGate = null;
+        if (await evaluateCondition(gate)) {
+          node = nextNode(flow, gate, "yes");
+          continue;
+        }
+      }
+
       node = nextNode(flow, node, handle);
     }
 

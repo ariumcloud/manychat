@@ -278,7 +278,6 @@ function CreateDrawer({
     "Opa! Antes de te mandar, me segue aqui 👉 é rapidinho.\n\nDepois toca no botão abaixo que eu te envio na hora 👇",
   );
   const [gateButton, setGateButton] = useState("JÁ TE SEGUI ✅");
-  const [gateOpener, setGateOpener] = useState("Opa! Vi seu comentário 👀 Só um segundo…");
   const [mediaId, setMediaId] = useState(initialMediaId ?? "");
   const [media, setMedia] = useState<Media[]>([]);
   const [saving, setSaving] = useState(false);
@@ -318,7 +317,6 @@ function CreateDrawer({
         follow_gate_enabled: followGate,
         follow_gate_text: gateText,
         follow_gate_button: gateButton,
-        follow_gate_opener: gateOpener,
       }),
     });
 
@@ -465,24 +463,6 @@ function CreateDrawer({
             ) : (
               <>
                 <div>
-                  <label className="label" htmlFor="gate-opener">
-                    Primeira mensagem (a ponte, vale pra todo mundo)
-                  </label>
-                  <input
-                    id="gate-opener"
-                    className="input"
-                    value={gateOpener}
-                    onChange={(e) => setGateOpener(e.target.value)}
-                  />
-                  <p className="mt-1.5 text-xs text-[var(--fg-dim)]">
-                    Só no comentário → DM. Ela abre a conversa pra eu conseguir saber se a pessoa te
-                    segue — sem isso, o Instagram não conta. Ela sai <strong>antes</strong> dessa
-                    checagem, então não prometa o link aqui: quem não te segue receberia a promessa e,
-                    logo depois, o pedido pra seguir.
-                  </p>
-                </div>
-
-                <div>
                   <label className="label" htmlFor="gate-text">
                     Mensagem para quem NÃO te segue
                   </label>
@@ -509,11 +489,15 @@ function CreateDrawer({
                 </div>
 
                 <p className="text-xs leading-relaxed text-[var(--fg-dim)]">
-                  Depois da ponte eu já consigo checar quem segue. O seguidor recebe o conteúdo
-                  direto; quem não segue recebe o pedido com um botão de verdade embaixo da mensagem,
-                  que libera o conteúdo assim que ele seguir — sem repetir a ponte.
-                  Se o Instagram ainda não informar o status, trato como <strong>não seguidor</strong>{" "}
-                  e o botão resolve — o motivo fica no log da execução.
+                  A checagem é o primeiro passo do fluxo: quem já te segue recebe o conteúdo direto,
+                  quem não segue recebe o pedido — nada de mensagem antes disso.
+                  <br />
+                  <br />
+                  Um detalhe do Instagram: em <strong>comentário → DM</strong> ele só responde
+                  &ldquo;essa pessoa te segue?&rdquo; depois que existe uma conversa. Então, no
+                  primeiro contato, o portão começa fechado e o pedido sai primeiro. Assim que essa
+                  mensagem abre a conversa eu refaço a pergunta — se a pessoa já te seguia, o
+                  conteúdo emenda na sequência, sem ela precisar tocar em nada.
                 </p>
               </>
             )}

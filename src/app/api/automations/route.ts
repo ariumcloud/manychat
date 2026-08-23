@@ -22,7 +22,6 @@ type Body = {
   follow_gate_enabled?: boolean;
   follow_gate_text?: string;
   follow_gate_button?: string;
-  follow_gate_opener?: string;
 };
 
 /** Monta os blocos que entregam o conteúdo de verdade. */
@@ -51,7 +50,7 @@ function contentNodes(body: Body, x: number, y: number) {
 /**
  * Atalho do painel: cria o fluxo e o gatilho numa tacada só, já publicado.
  *
- * Com follow gate ligado, o fluxo vira uma bifurcação:
+ * Com follow gate ligado, o fluxo vira uma bifurcação já na entrada:
  *
  *   gatilho → segue você?
  *               ├─ sim → conteúdo de verdade
@@ -92,50 +91,45 @@ async function postHandler(req: Request) {
   const edges: FlowEdge[] = [];
 
   if (gateOn) {
-    // Comentário → DM: a API só sabe se a pessoa te segue DEPOIS que existe uma
-    // conversa. Então mandamos uma ponte primeiro (que abre a conversa via
-    // private reply e resolve o IGSID real), e só aí o portão decide. Sem isso,
-    // o seguidor que comenta é sempre tratado como "não segue".
-    const isComment = (body.kind ?? "comment_keyword") === "comment_keyword";
-    const gateEntry = isComment ? "opener" : "trigger";
-
-    if (isComment) {
-      nodes.push({
-        id: "opener",
-        type: "text",
-        position: { x: 340, y: 180 },
-        data: {
-          // Esta mensagem sai antes de o portão saber se a pessoa te segue, então
-          // ela não pode prometer a entrega: quem não segue receberia o "já tô te
-          // mandando" e, logo depois, um pedido para seguir — parece bug.
-          text: body.follow_gate_opener?.trim() || "Opa! Vi seu comentário 👀 Só um segundo…",
-        },
-      });
-      edges.push({ id: "e-trigger-opener", source: "trigger", target: "opener" });
-    }
-
+    // A condição é o primeiro passo: ninguém recebe nada antes de o portão
+    // decidir. Quem já segue recebe o conteúdo de cara; quem não segue recebe o
+    // pedido para seguir como PRIMEIRA mensagem.
+    //
+    // O Instagram não informa "essa pessoa te segue?" enquanto não existe uma
+    // conversa, então num comentário o portão começa fechado. O motor refaz a
+    // pergunta assim que a primeira mensagem abre a conversa e, se a pessoa já
+    // seguia, emenda o conteúdo — ver `runFlow`.
     nodes.push({
       id: "gate",
       type: "condition",
-      position: { x: isComment ? 620 : 340, y: 180 },
+      position: { x: 340, y: 180 },
       data: { field: "is_user_follow_business", op: "is_true" },
     });
-    edges.push({ id: "e-entry-gate", source: gateEntry, target: "gate" });
+    edges.push({ id: "e-trigger-gate", source: "trigger", target: "gate" });
 
-    const content = contentNodes(body, isComment ? 900 : 640, 60);
+    const content = contentNodes(body, 640, 60);
     nodes.push(...content.nodes);
     edges.push(...content.edges);
     edges.push({ id: "e-gate-yes", source: "gate", target: "msg", sourceHandle: "yes" });
 
+    // O pedido vem em dois blocos de propósito. O botão é um template, que exige
+    // uma conversa aberta — e num comentário ela só abre com a primeira
+    // mensagem. Separados, o texto abre a conversa e o botão vem em seguida; e
+    // é entre os dois que o motor reavalia quem segue.
     nodes.push({
       id: "ask-follow",
+      type: "text",
+      position: { x: 640, y: 340 },
+      data: { text: gateText },
+    });
+    edges.push({ id: "e-gate-no", source: "gate", target: "ask-follow", sourceHandle: "no" });
+
+    nodes.push({
+      id: "follow-btn",
       type: "buttons",
-      position: { x: isComment ? 900 : 640, y: 340 },
+      position: { x: 960, y: 340 },
       data: {
-        text: gateText,
-        // Botão de verdade (template), não quick reply: a mensagem diz "toque no
-        // botão abaixo" e o chip de resposta rápida some da conversa. Se o
-        // Instagram recusar o template, o motor cai para quick reply sozinho.
+        text: "Toque no botão abaixo 👇",
         // payload preenchido depois do insert, quando o id do fluxo existe
         buttons: [
           {
@@ -146,7 +140,7 @@ async function postHandler(req: Request) {
         ],
       },
     });
-    edges.push({ id: "e-gate-no", source: "gate", target: "ask-follow", sourceHandle: "no" });
+    edges.push({ id: "e-ask-btn", source: "ask-follow", target: "follow-btn" });
   } else {
     const content = contentNodes(body, 360, 160);
     nodes.push(...content.nodes);
@@ -173,7 +167,7 @@ async function postHandler(req: Request) {
   // mensagem-ponte a cada toque no botão.
   if (gateOn) {
     const patched = nodes.map((n) =>
-      n.id === "ask-follow"
+      n.id === "follow-btn"
         ? {
             ...n,
             data: {
