@@ -20,6 +20,13 @@ export type FlowNodeData = {
   url?: string;
   /** buttons */
   buttons?: FlowButton[];
+  /**
+   * text: link que vai no fim da mensagem, já rastreado.
+   * Num comentário só existe UMA mensagem (a private reply) — o Instagram
+   * recusa qualquer envio seguinte enquanto a pessoa não responder. Então o
+   * link viaja dentro do texto em vez de num botão, que exigiria uma segunda.
+   */
+  link?: { url: string; label?: string };
   /** quickReplies */
   options?: Array<{ label: string; payload: string }>;
   /** delay (segundos) */

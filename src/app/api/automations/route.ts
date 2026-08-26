@@ -24,27 +24,28 @@ type Body = {
   follow_gate_button?: string;
 };
 
-/** Monta os blocos que entregam o conteúdo de verdade. */
+/**
+ * O conteúdo de verdade, numa mensagem só.
+ *
+ * O link não vira botão: num comentário só existe UMA mensagem (a private
+ * reply). O Instagram recusa a segunda com "outside of allowed window"
+ * enquanto a pessoa não responder — foi assim que o link sumia.
+ */
 function contentNodes(body: Body, x: number, y: number) {
+  const url = body.button_url?.trim();
   const nodes: FlowNode[] = [
-    { id: "msg", type: "text", position: { x, y }, data: { text: body.dm_text!.trim() } },
-  ];
-  const edges: FlowEdge[] = [];
-
-  if (body.button_label?.trim() && body.button_url?.trim()) {
-    nodes.push({
-      id: "btn",
-      type: "buttons",
-      position: { x: x + 320, y },
+    {
+      id: "msg",
+      type: "text",
+      position: { x, y },
       data: {
-        text: "Toque no botão abaixo 👇",
-        buttons: [{ kind: "url", label: body.button_label.trim(), url: body.button_url.trim() }],
+        text: body.dm_text!.trim(),
+        ...(url ? { link: { url, label: body.button_label?.trim() || undefined } } : {}),
       },
-    });
-    edges.push({ id: "e-msg-btn", source: "msg", target: "btn" });
-  }
+    },
+  ];
 
-  return { nodes, edges };
+  return { nodes, edges: [] as FlowEdge[] };
 }
 
 /**
@@ -112,35 +113,23 @@ async function postHandler(req: Request) {
     edges.push(...content.edges);
     edges.push({ id: "e-gate-yes", source: "gate", target: "msg", sourceHandle: "yes" });
 
-    // O pedido vem em dois blocos de propósito. O botão é um template, que exige
-    // uma conversa aberta — e num comentário ela só abre com a primeira
-    // mensagem. Separados, o texto abre a conversa e o botão vem em seguida; e
-    // é entre os dois que o motor reavalia quem segue.
+    // Pedido e botão na MESMA mensagem: quick reply é o único botão que cabe
+    // numa private reply, e é o único envio permitido antes de a pessoa
+    // responder. Um template de botão exigiria uma segunda mensagem, que o
+    // Instagram recusa.
     nodes.push({
       id: "ask-follow",
-      type: "text",
+      type: "quickReplies",
       position: { x: 640, y: 340 },
-      data: { text: gateText },
-    });
-    edges.push({ id: "e-gate-no", source: "gate", target: "ask-follow", sourceHandle: "no" });
-
-    nodes.push({
-      id: "follow-btn",
-      type: "buttons",
-      position: { x: 960, y: 340 },
       data: {
-        text: "Toque no botão abaixo 👇",
+        text: gateText,
         // payload preenchido depois do insert, quando o id do fluxo existe
-        buttons: [
-          {
-            kind: "reply",
-            label: (body.follow_gate_button || "JÁ TE SEGUI ✅").slice(0, 20),
-            payload: "",
-          },
+        options: [
+          { label: (body.follow_gate_button || "JÁ TE SEGUI ✅").slice(0, 20), payload: "" },
         ],
       },
     });
-    edges.push({ id: "e-ask-btn", source: "ask-follow", target: "follow-btn" });
+    edges.push({ id: "e-gate-no", source: "gate", target: "ask-follow", sourceHandle: "no" });
   } else {
     const content = contentNodes(body, 360, 160);
     nodes.push(...content.nodes);
@@ -167,14 +156,15 @@ async function postHandler(req: Request) {
   // mensagem-ponte a cada toque no botão.
   if (gateOn) {
     const patched = nodes.map((n) =>
-      n.id === "follow-btn"
+      n.id === "ask-follow"
         ? {
             ...n,
             data: {
               ...n.data,
-              buttons: (n.data.buttons ?? []).map((b) =>
-                b.kind === "reply" ? { ...b, payload: `flow:${flow.id}@gate` } : b,
-              ),
+              options: (n.data.options ?? []).map((o) => ({
+                ...o,
+                payload: `flow:${flow.id}@gate`,
+              })),
             },
           }
         : n,

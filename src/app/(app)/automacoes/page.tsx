@@ -489,15 +489,16 @@ function CreateDrawer({
                 </div>
 
                 <p className="text-xs leading-relaxed text-[var(--fg-dim)]">
-                  A checagem é o primeiro passo do fluxo: quem já te segue recebe o conteúdo direto,
-                  quem não segue recebe o pedido — nada de mensagem antes disso.
+                  A checagem é o primeiro passo: quem já te segue recebe o conteúdo direto, quem não
+                  segue recebe o pedido — nada de mensagem antes disso.
                   <br />
                   <br />
-                  Um detalhe do Instagram: em <strong>comentário → DM</strong> ele só responde
-                  &ldquo;essa pessoa te segue?&rdquo; depois que existe uma conversa. Então, no
-                  primeiro contato, o portão começa fechado e o pedido sai primeiro. Assim que essa
-                  mensagem abre a conversa eu refaço a pergunta — se a pessoa já te seguia, o
-                  conteúdo emenda na sequência, sem ela precisar tocar em nada.
+                  Duas regras do Instagram mandam aqui. Num <strong>comentário</strong> você tem
+                  direito a <strong>uma única mensagem</strong> até a pessoa responder — por isso o
+                  link vai dentro do texto e o botão vai como resposta rápida, tudo junto. E o
+                  &ldquo;essa pessoa te segue?&rdquo; só é respondido depois que existe uma conversa,
+                  então no primeiro contato o portão começa fechado: quem já te seguia recebe o
+                  pedido, toca no botão e o conteúdo vai na hora.
                 </p>
               </>
             )}

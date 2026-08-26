@@ -4,6 +4,7 @@ import {
   recordMessage,
   refreshContactProfile,
   upsertContact,
+  windowIsOpen,
 } from "../repo";
 import {
   MetaError,
@@ -99,6 +100,11 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
 
   let igsid = ctx.igsid ?? null;
   let conversationId = ctx.conversationId ?? null;
+  // Janela de 24h do Meta. A private reply de um comentario e a UNICA mensagem
+  // permitida enquanto a pessoa nao responder: qualquer envio seguinte volta
+  // "This message is sent outside of allowed window" (403). Saber disso aqui
+  // evita bater na API para levar erro — e da para explicar direito no log.
+  let windowOpen = false;
   let contactId = ctx.contactId;
   let commentToUse = ctx.commentId ?? null;
   let steps = 0;
@@ -138,6 +144,29 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     conversationId = conv.id as string;
     return conversationId;
   };
+
+  /**
+   * Pode mandar mensagem livre para este contato agora?
+   * So se a pessoa nos escreveu nas ultimas 24h — ou se ainda temos a private
+   * reply do comentario na mao, que e o unico envio que dispensa a janela.
+   */
+  const canSendFreeform = async () => {
+    if (commentToUse) return true;
+    if (windowOpen) return true;
+    const { data } = await supabase
+      .from("mc_conversations")
+      .select("window_expires_at")
+      .eq("account_id", ctx.accountId)
+      .eq("contact_id", contactId)
+      .maybeSingle();
+    windowOpen = windowIsOpen(data?.window_expires_at);
+    return windowOpen;
+  };
+
+  const OUT_OF_WINDOW =
+    "Fora da janela de 24h do Instagram: depois da primeira resposta ao comentario, " +
+    "so da para mandar de novo se a pessoa te responder. Deixe o fluxo do comentario " +
+    "com uma mensagem so.";
 
   /**
    * A primeira mensagem de um fluxo vindo de comentario sai como private reply
@@ -197,6 +226,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     }
 
     if (!igsid) throw new Error("Sem IGSID para enviar a mensagem.");
+    if (!(await canSendFreeform())) throw new Error(OUT_OF_WINDOW);
     const res = await sendText(igsid, text, quickReplies);
     const convId = await ensureConversation();
     await recordMessage({
@@ -306,9 +336,23 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
         case "trigger":
           break;
 
-        case "text":
-          if (node.data.text) await deliver(node.data.text, undefined, node.id);
+        case "text": {
+          let text = node.data.text ?? "";
+          // O link vai no corpo da mensagem, rastreado do mesmo jeito.
+          if (node.data.link?.url) {
+            const url = await createTrackedLink({
+              accountId: ctx.accountId,
+              url: node.data.link.url,
+              contactId,
+              flowId: flow.id,
+              triggerId: ctx.triggerId ?? null,
+              baseUrl: appBaseUrl(),
+            });
+            text = text ? `${text}\n\n${url}` : url;
+          }
+          if (text) await deliver(text, undefined, node.id);
           break;
+        }
 
         case "quickReplies":
           if (node.data.text) {
@@ -325,6 +369,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
           // Sem IGSID nao da para anexar nada. Falhar aqui e melhor do que
           // marcar o run como concluido tendo entregue so o texto.
           if (!igsid) throw new Error("Sem IGSID para enviar a imagem.");
+          if (!(await canSendFreeform())) throw new Error(OUT_OF_WINDOW);
 
           const res = await sendImage(igsid, node.data.url);
           const convId = await ensureConversation();
@@ -375,6 +420,8 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
           }
           if (buttons.length) {
             if (!igsid) throw new Error("Sem IGSID para enviar os botoes.");
+            // Template exige recipient.id, entao nunca cabe numa private reply.
+            if (!(await canSendFreeform())) throw new Error(OUT_OF_WINDOW);
             try {
               const res = await sendButtons(igsid, text, buttons);
               const convId = await ensureConversation();
@@ -433,13 +480,15 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
 
       steps += 1;
 
-      // A conversa acabou de abrir (a primeira mensagem saiu como private reply
-      // e devolveu o IGSID real). So agora da para saber se a pessoa te segue —
-      // se seguia, o resto do ramo "nao" nao faz sentido e o conteudo emenda.
+      // A primeira mensagem saiu e devolveu o IGSID real, entao agora da para
+      // saber se a pessoa te segue. Se seguia, emendamos o conteudo — mas so
+      // quando ainda ha permissao para mandar outra mensagem. Vindo de um
+      // comentario normalmente nao ha: a private reply foi a unica cota, e o
+      // conteudo sai quando a pessoa tocar no botao.
       if (pendingFollowGate && !commentToUse && igsid) {
         const gate = pendingFollowGate;
         pendingFollowGate = null;
-        if (await evaluateCondition(gate)) {
+        if ((await canSendFreeform()) && (await evaluateCondition(gate))) {
           node = nextNode(flow, gate, "yes");
           continue;
         }
