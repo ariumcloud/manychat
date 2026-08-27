@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 import { getAccount } from "@/lib/repo";
 import { withApi } from "@/lib/api";
+import { DEFAULT_THEME, THEMES, getTheme } from "@/lib/carousel/themes";
 import { generateCarousel } from "@/lib/carousel/generate";
 import { pickProvider, providerLabel } from "@/lib/carousel/providers";
 import { clampSlideCount, MAX_SLIDES, MIN_SLIDES, PRESETS } from "@/lib/carousel/prompt";
@@ -29,16 +30,20 @@ async function getHandler() {
     ready: provider === "openai" ? Boolean(process.env.OPENAI_API_KEY) : Boolean(process.env.ANTHROPIC_API_KEY),
     slideRange: { min: MIN_SLIDES, max: MAX_SLIDES },
     presets: PRESETS,
+    // Só o rótulo: as funções de desenho ficam no servidor.
+    themes: THEMES.map(({ id, label, hint }) => ({ id, label, hint })),
+    defaultTheme: DEFAULT_THEME,
   });
 }
 
 /** Recebe a ideia e devolve o roteiro dos slides já gravado. */
 async function postHandler(req: Request) {
   const account = await getAccount();
-  const { brief, slide_count, direction } = (await req.json().catch(() => ({}))) as {
+  const { brief, slide_count, direction, theme } = (await req.json().catch(() => ({}))) as {
     brief?: string;
     slide_count?: number;
     direction?: string;
+    theme?: string;
   };
 
   if (!brief?.trim() || brief.trim().length < 30) {
@@ -65,6 +70,7 @@ async function postHandler(req: Request) {
       handle: account.username,
       display_name: account.name ?? account.username,
       avatar_url: account.profile_picture_url,
+      theme: getTheme(theme).id,
     })
     .select()
     .single();

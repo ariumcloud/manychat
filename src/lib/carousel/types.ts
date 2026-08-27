@@ -18,6 +18,8 @@ export type Carousel = {
   avatar_url: string | null;
   verified: boolean;
   slides: Slide[];
+  /** Tema visual do slide. Ver `themes.tsx`. */
+  theme?: string | null;
   status: string;
   published_at: string | null;
   ig_media_id: string | null;

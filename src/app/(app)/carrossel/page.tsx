@@ -31,9 +31,11 @@ type Carousel = {
   updated_at: string;
   published_at?: string | null;
   ig_media_id?: string | null;
+  theme?: string | null;
 };
 
 type Preset = { label: string; text: string };
+type ThemeOption = { id: string; label: string; hint: string };
 
 const EXEMPLO =
   "Montei uma ferramenta que transforma uma ideia em carrossel pronto. Eu escrevo o que aconteceu, ela devolve os slides no formato card de tweet e renderiza tudo em imagem sozinha — sem Canva, sem template. Este carrossel foi feito por ela. A regra que eu programei: nunca inventar número, só usar o que é real e tem print pra provar.";
@@ -51,6 +53,8 @@ export default function CarrosselPage() {
   const [direction, setDirection] = useState("");
   const [slideCount, setSlideCount] = useState(8);
   const [range, setRange] = useState({ min: 4, max: 10 });
+  const [themes, setThemes] = useState<ThemeOption[]>([]);
+  const [theme, setTheme] = useState("editorial");
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -63,6 +67,8 @@ export default function CarrosselPage() {
         ready: boolean;
         slideRange: { min: number; max: number };
         presets: Preset[];
+        themes: ThemeOption[];
+        defaultTheme: string;
       }>("/api/carousels");
       if (cancelled) return;
       if (ok) {
@@ -71,6 +77,8 @@ export default function CarrosselPage() {
         setReady(data?.ready ?? false);
         if (data?.slideRange) setRange(data.slideRange);
         if (data?.presets) setPresets(data.presets);
+        if (data?.themes?.length) setThemes(data.themes);
+        if (data?.defaultTheme) setTheme(data.defaultTheme);
       }
       setError(ok ? null : err);
       setLoading(false);
@@ -88,7 +96,7 @@ export default function CarrosselPage() {
     const { ok, data, error: err } = await fetchJson<{ carousel: Carousel }>("/api/carousels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brief, slide_count: slideCount, direction }),
+      body: JSON.stringify({ brief, slide_count: slideCount, direction, theme }),
     });
 
     if (ok && data) {
@@ -118,7 +126,7 @@ export default function CarrosselPage() {
   }
 
   if (active) {
-    return <Editor carousel={active} onBack={() => setActive(null)} />;
+    return <Editor carousel={active} themes={themes} onBack={() => setActive(null)} />;
   }
 
   return (
@@ -201,6 +209,31 @@ export default function CarrosselPage() {
               A capa e o fechamento são fixos — o que muda é quanto cabe no miolo.
             </p>
           </div>
+
+          {themes.length > 0 && (
+            <div className="mt-4">
+              <span className="label">Tema visual</span>
+              <div className="flex flex-wrap gap-1.5">
+                {themes.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setTheme(t.id)}
+                    className={
+                      "rounded-lg px-3 py-2 text-sm transition-colors " +
+                      (theme === t.id
+                        ? "bg-[var(--accent)] text-white"
+                        : "bg-[var(--bg)] text-[var(--fg-muted)] hover:text-[var(--fg)]")
+                    }
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-[var(--fg-dim)]">
+                {themes.find((t) => t.id === theme)?.hint ?? "Dá pra trocar depois, sem regerar o texto."}
+              </p>
+            </div>
+          )}
 
           <div className="mt-4 flex items-center justify-between gap-4">
             <button
@@ -293,8 +326,17 @@ export default function CarrosselPage() {
   );
 }
 
-function Editor({ carousel, onBack }: { carousel: Carousel; onBack: () => void }) {
+function Editor({
+  carousel,
+  themes,
+  onBack,
+}: {
+  carousel: Carousel;
+  themes: ThemeOption[];
+  onBack: () => void;
+}) {
   const [slides, setSlides] = useState<Slide[]>(carousel.slides);
+  const [theme, setTheme] = useState(carousel.theme ?? "tweet");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Muda quando algo é salvo, para forçar o navegador a rebuscar os PNGs.
@@ -308,6 +350,17 @@ function Editor({ carousel, onBack }: { carousel: Carousel; onBack: () => void }
     setSlides((prev) => prev.map((s) => (s.n === n ? { ...s, text } : s)));
   }
 
+  /** Troca o tema e redesenha na hora — sem isto teria que salvar pra ver. */
+  async function applyTheme(next: string) {
+    const { ok, error: err } = await fetchJson(`/api/carousels/${carousel.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ theme: next }),
+    });
+    if (!ok) setError(err ?? "Não consegui trocar o tema.");
+    else setStamp((v) => v + 1);
+  }
+
   async function save() {
     setSaving(true);
     setError(null);
@@ -315,11 +368,11 @@ function Editor({ carousel, onBack }: { carousel: Carousel; onBack: () => void }
     const { ok, error: err } = await fetchJson(`/api/carousels/${carousel.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slides }),
+      body: JSON.stringify({ slides, theme }),
     });
 
     if (!ok) setError(err ?? "Não consegui salvar.");
-    else setStamp(Date.now());
+    else setStamp((v) => v + 1);
     setSaving(false);
   }
 
@@ -374,6 +427,34 @@ function Editor({ carousel, onBack }: { carousel: Carousel; onBack: () => void }
         {error && (
           <div className="card mb-5 border-[rgba(248,113,113,0.4)] p-4 text-sm text-[var(--danger)]">
             {error}
+          </div>
+        )}
+
+        {themes.length > 0 && (
+          <div className="card mb-5 p-4">
+            <span className="label">Tema visual</span>
+            <div className="flex flex-wrap gap-2">
+              {themes.map((t) => (
+                <button
+                  key={t.id}
+                  title={t.hint}
+                  onClick={() => {
+                    setTheme(t.id);
+                    void applyTheme(t.id);
+                  }}
+                  className={
+                    theme === t.id
+                      ? "btn btn-primary"
+                      : "btn btn-ghost"
+                  }
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2.5 text-xs text-[var(--fg-dim)]">
+              {themes.find((t) => t.id === theme)?.hint}
+            </p>
           </div>
         )}
 

@@ -4,14 +4,17 @@
  */
 const cache = new Map<string, ArrayBuffer>();
 
-export async function loadFont(family: string, weight: 400 | 700): Promise<ArrayBuffer> {
+export async function loadFont(family: string, weight: number): Promise<ArrayBuffer> {
   const key = `${family}:${weight}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
-  const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(
-    family,
-  )}:wght@${weight}`;
+  // Famílias de peso único (Anton, Bebas Neue) não aceitam o eixo wght — cai
+  // para a URL sem eixo quando a primeira não devolve nada utilizável.
+  const urls = [
+    `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@${weight}`,
+    `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}`,
+  ];
 
   /*
     NÃO mande User-Agent aqui. O Google escolhe o formato pelo UA: navegador
@@ -19,9 +22,12 @@ export async function loadFont(family: string, weight: 400 | 700): Promise<Array
     truetype, que é o que precisamos. (O snippet que circula por aí manda um UA
     de Chrome e quebra exatamente por isso.)
   */
-  const css = await fetch(cssUrl).then((r) => r.text());
-
-  const match = css.match(/src:\s*url\(([^)]+)\)\s*format\('(?:opentype|truetype)'\)/);
+  let match: RegExpMatchArray | null = null;
+  for (const url of urls) {
+    const css = await fetch(url).then((r) => (r.ok ? r.text() : ""));
+    match = css.match(/src:\s*url\(([^)]+)\)\s*format\('(?:opentype|truetype)'\)/);
+    if (match) break;
+  }
   if (!match) throw new Error(`Não consegui baixar a fonte ${family} ${weight}.`);
 
   const buffer = await fetch(match[1]).then((r) => r.arrayBuffer());

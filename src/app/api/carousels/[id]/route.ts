@@ -20,7 +20,7 @@ async function patchHandler(req: Request, { params }: Params) {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  for (const key of ["title", "slides", "handle", "display_name", "avatar_url", "verified"] as const) {
+  for (const key of ["title", "slides", "handle", "display_name", "avatar_url", "verified", "theme"] as const) {
     if (key in body) patch[key] = body[key];
   }
 
