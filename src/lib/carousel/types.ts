@@ -1,3 +1,17 @@
+/**
+ * O bloco em destaque do slide — o cartão escuro dos carrosséis bem editados.
+ * É ele que transforma texto corrido em informação com forma.
+ */
+export type SlideCard =
+  /** Lista com setas. */
+  | { kind: "bullets"; title?: string; items: string[]; note?: string }
+  /** Cadeia vertical (A ↓ B ↓ C), com o último item em destaque. */
+  | { kind: "flow"; title?: string; items: string[] }
+  /** Passos numerados. */
+  | { kind: "steps"; title?: string; items: string[] }
+  /** Só um parágrafo, quando o conteúdo não é lista. */
+  | { kind: "text"; title?: string; body: string };
+
 export type Slide = {
   n: number;
   /** Texto do card. Usa **negrito** nos números — é o que dá credibilidade. */
@@ -6,6 +20,18 @@ export type Slide = {
   screenshot_hint: string;
   /** URL pública do print depois do upload. */
   image_url?: string | null;
+
+  // --- estrutura opcional. Sem isto o slide ainda desenha, só mais simples ---
+  /** Rótulo curto acima do bloco: "O PROBLEMA", "A GRANDE SACADA". */
+  eyebrow?: string;
+  /** Trilha em monoespaçada: "nicho / subnicho / dor-especifica". */
+  breadcrumb?: string;
+  /** Linha em serifa itálica logo abaixo da manchete. */
+  subhead?: string;
+  /** O cartão escuro. */
+  card?: SlideCard;
+  /** Fecho embaixo do slide, com **destaque**. */
+  kicker?: string;
 };
 
 export type Carousel = {

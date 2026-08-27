@@ -4,15 +4,20 @@
  */
 const cache = new Map<string, ArrayBuffer>();
 
-export async function loadFont(family: string, weight: number): Promise<ArrayBuffer> {
-  const key = `${family}:${weight}`;
+export async function loadFont(
+  family: string,
+  weight: number,
+  italic = false,
+): Promise<ArrayBuffer> {
+  const key = `${family}:${weight}:${italic ? "i" : "n"}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
   // Famílias de peso único (Anton, Bebas Neue) não aceitam o eixo wght — cai
   // para a URL sem eixo quando a primeira não devolve nada utilizável.
+  const axis = italic ? `ital,wght@1,${weight}` : `wght@${weight}`;
   const urls = [
-    `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@${weight}`,
+    `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:${axis}`,
     `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}`,
   ];
 

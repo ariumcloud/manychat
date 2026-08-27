@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { Rich, plain } from "./text";
-import { SLIDE_HEIGHT, SLIDE_WIDTH, type Carousel, type Slide } from "./types";
+import { SLIDE_HEIGHT, SLIDE_WIDTH, type Carousel, type Slide, type SlideCard } from "./types";
 
 /**
  * Um tema é um jeito de desenhar o slide. Todos recebem o mesmo conteúdo — o
@@ -27,7 +27,7 @@ export type ThemeCtx = {
   body: string[];
 };
 
-export type FontSpec = { family: string; weight: number };
+export type FontSpec = { family: string; weight: number; italic?: boolean };
 
 export type Theme = {
   id: string;
@@ -604,10 +604,329 @@ const terminal: Theme = {
   },
 };
 
+
+// --- 6. Dossiê --------------------------------------------------------------
+
+/**
+ * O formato dos carrosséis bem editados que circulam por aí: papel creme,
+ * manchete pesada em caixa alta, e um cartão escuro onde mora a informação com
+ * forma — lista, cadeia ou passos.
+ *
+ * O que faz este tema funcionar não é a paleta, é o slide trazer ESTRUTURA
+ * (eyebrow, trilha, cartão, fecho). Sem isso ele desenha o básico e fica
+ * parecido com os outros.
+ */
+const D = {
+  paper: "#f2ede1",
+  ink: "#14161c",
+  rust: "#c8552b",
+  card: "#232733",
+  cardInk: "#eeece7",
+  muted: "#8c8578",
+  rule: "#d9d2c2",
+};
+
+function DossieCard({ card }: { card: SlideCard }) {
+  const title = "title" in card ? card.title : undefined;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        background: D.card,
+        borderRadius: 30,
+        padding: "42px 46px",
+        marginTop: 40,
+      }}
+    >
+      {title && (
+        <div style={{ display: "flex", marginBottom: 26 }}>
+          <Rich block={title} size={40} color={D.cardInk} weight={700} boldColor={D.rust} lineHeight={1.28} />
+        </div>
+      )}
+
+      {card.kind === "text" && (
+        <div style={{ display: "flex" }}>
+          <Rich block={card.body} size={34} color="#a9b0bd" lineHeight={1.5} boldColor={D.cardInk} />
+        </div>
+      )}
+
+      {card.kind === "bullets" && (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {card.items.map((item, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", marginBottom: 14 }}>
+              <span style={{ fontSize: 34, color: D.rust, marginRight: 16, lineHeight: 1.45 }}>→</span>
+              <Rich block={item} size={34} color={D.cardInk} lineHeight={1.45} boldColor="#ffffff" />
+            </div>
+          ))}
+          {card.note && (
+            <div style={{ display: "flex", marginTop: 22 }}>
+              <Rich block={card.note} size={32} color="#98a0ad" lineHeight={1.5} boldColor={D.cardInk} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {card.kind === "flow" && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          {card.items.map((item, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <span
+                style={{
+                  fontSize: 38,
+                  fontWeight: 700,
+                  letterSpacing: 1,
+                  color: i === card.items.length - 1 ? D.rust : D.cardInk,
+                  textTransform: "uppercase",
+                }}
+              >
+                {item}
+              </span>
+              {i < card.items.length - 1 && (
+                <span style={{ fontSize: 32, color: D.rust, margin: "6px 0" }}>↓</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {card.kind === "steps" && (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {card.items.map((item, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", marginBottom: 16 }}>
+              <span
+                style={{
+                  fontSize: 34,
+                  fontWeight: 700,
+                  color: D.rust,
+                  marginRight: 16,
+                  lineHeight: 1.4,
+                }}
+              >
+                {i + 1}.
+              </span>
+              <Rich block={item} size={34} color={D.cardInk} weight={700} lineHeight={1.4} boldColor="#ffffff" />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const dossie: Theme = {
+  id: "dossie",
+  label: "Dossiê",
+  hint: "Papel creme, manchete pesada e cartão escuro com lista, cadeia ou passos. Capa usa o print como fundo.",
+  fonts: [
+    { family: "Archivo Black", weight: 400 },
+    { family: "Instrument Serif", weight: 400, italic: true },
+    { family: "Inter", weight: 400 },
+    { family: "Inter", weight: 700 },
+    { family: "JetBrains Mono", weight: 400 },
+  ],
+  render: ({ carousel, slide, index, role, headline, body }) => {
+    const handle = carousel.handle ? `@${carousel.handle}` : "";
+    const num = String(index).padStart(2, "0");
+
+    // Capa com print: a imagem vira o fundo e o texto senta por cima.
+    if (role === "capa" && slide.image_url) {
+      return (
+        <div
+          style={{
+            width: SLIDE_WIDTH,
+            height: SLIDE_HEIGHT,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "flex-end",
+            background: D.ink,
+            fontFamily: "Inter",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={slide.image_url}
+            alt=""
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: SLIDE_WIDTH,
+              height: SLIDE_HEIGHT,
+              objectFit: "cover",
+            }}
+          />
+          {/* Véu: o texto tem que ficar legível sobre QUALQUER print, inclusive
+              um que já seja cheio de letra. Nada de `inset` — o Satori ignora o
+              atalho e o véu sai sem tamanho, ou seja, invisível. */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: SLIDE_WIDTH,
+              height: SLIDE_HEIGHT,
+              display: "flex",
+              background:
+                "linear-gradient(180deg, rgba(8,9,12,0.55) 0%, rgba(8,9,12,0.45) 30%, rgba(8,9,12,0.93) 62%, #08090c 100%)",
+            }}
+          />
+
+          <div style={{ display: "flex", flexDirection: "column", padding: "0 64px 76px" }}>
+            <div style={{ display: "flex" }}>
+              <Rich
+                block={headline}
+                size={headlineSize(headline, 104, 88, 74)}
+                color="#ffffff"
+                weight={400}
+                boldWeight={400}
+                boldColor="#37e07f"
+                lineHeight={1.03}
+                spacing={-1}
+                family="Archivo Black"
+              />
+            </div>
+            {body.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", marginTop: 26 }}>
+                {body.map((b, i) => (
+                  <div key={i} style={{ display: "flex", marginBottom: 6 }}>
+                    <Rich block={b} size={30} color="#dfe3e8" weight={700} lineHeight={1.34} boldColor="#37e07f" />
+                  </div>
+                ))}
+              </div>
+            )}
+            <span style={{ fontSize: 26, color: "#9aa3ad", marginTop: 30, fontFamily: "JetBrains Mono" }}>
+              {handle}
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        style={{
+          width: SLIDE_WIDTH,
+          height: SLIDE_HEIGHT,
+          display: "flex",
+          flexDirection: "column",
+          background: D.paper,
+          padding: "0 64px 64px",
+          fontFamily: "Inter",
+        }}
+      >
+        {/* barra de topo */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "44px 0 26px",
+            borderBottom: `2px solid ${D.rule}`,
+            marginBottom: 54,
+          }}
+        >
+          <span style={{ fontSize: 28, color: D.muted, fontFamily: "JetBrains Mono" }}>{handle}</span>
+          <span style={{ fontSize: 28, color: D.muted, fontFamily: "JetBrains Mono" }}>{num}</span>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+          <div style={{ display: "flex" }}>
+            <Rich
+              block={headline}
+              size={headlineSize(headline, 92, 78, 66)}
+              color={D.ink}
+              weight={400}
+              boldWeight={400}
+              boldColor={D.rust}
+              lineHeight={1.02}
+              spacing={-1}
+              family="Archivo Black"
+            />
+          </div>
+
+          {slide.subhead && (
+            <div style={{ display: "flex", marginTop: 20 }}>
+              <span
+                style={{
+                  fontSize: 42,
+                  color: D.rust,
+                  fontFamily: "Instrument Serif",
+                  fontStyle: "italic",
+                  lineHeight: 1.25,
+                }}
+              >
+                {slide.subhead}
+              </span>
+            </div>
+          )}
+
+          {(slide.eyebrow || slide.breadcrumb) && (
+            <div style={{ display: "flex", flexDirection: "column", marginTop: 34 }}>
+              {slide.eyebrow && (
+                <span
+                  style={{
+                    fontSize: 27,
+                    fontWeight: 700,
+                    letterSpacing: 1.5,
+                    textTransform: "uppercase",
+                    color: D.rust,
+                  }}
+                >
+                  {slide.eyebrow}
+                </span>
+              )}
+              {slide.breadcrumb && (
+                <span
+                  style={{
+                    fontSize: 28,
+                    color: D.muted,
+                    fontFamily: "JetBrains Mono",
+                    marginTop: 8,
+                  }}
+                >
+                  {slide.breadcrumb}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* O bloco central divide o espaço livre com a manchete e o fecho —
+              ancorado no topo, cartão curto deixava uma faixa vazia embaixo. */}
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center" }}>
+          {slide.card ? (
+            <DossieCard card={slide.card} />
+          ) : (
+            body.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", marginTop: 36 }}>
+                {body.map((block, i) => (
+                  <div key={i} style={{ display: "flex", marginBottom: 18 }}>
+                    <Rich block={block} size={36} color="#3f4450" lineHeight={1.5} boldColor={D.ink} />
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
+          {slide.image_url && <Proof url={slide.image_url} border={D.rule} />}
+          </div>
+        </div>
+
+        {slide.kicker && (
+          <div style={{ display: "flex", marginTop: 40 }}>
+            <Rich block={slide.kicker} size={38} color={D.ink} weight={700} boldColor={D.rust} lineHeight={1.35} />
+          </div>
+        )}
+      </div>
+    );
+  },
+};
+
 // --- registro ---------------------------------------------------------------
 
-export const THEMES: Theme[] = [tweet, editorial, poster, neon, terminal];
-export const DEFAULT_THEME = "editorial";
+export const THEMES: Theme[] = [dossie, editorial, poster, neon, terminal, tweet];
+export const DEFAULT_THEME = "dossie";
 
 export function getTheme(id: string | null | undefined): Theme {
   return THEMES.find((t) => t.id === id) ?? THEMES.find((t) => t.id === DEFAULT_THEME) ?? tweet;

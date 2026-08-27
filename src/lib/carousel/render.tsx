@@ -22,7 +22,7 @@ export async function renderSlide(carousel: Carousel, index: number): Promise<Im
   const blocks = paragraphs(slide.text);
   const { headline, body } = splitContent(slide, blocks);
 
-  const files = await Promise.all(theme.fonts.map((f) => loadFont(f.family, f.weight)));
+  const files = await Promise.all(theme.fonts.map((f) => loadFont(f.family, f.weight, f.italic)));
 
   return new ImageResponse(
     theme.render({
@@ -41,7 +41,7 @@ export async function renderSlide(carousel: Carousel, index: number): Promise<Im
         name: f.family,
         data: files[i],
         weight: f.weight as 400 | 700,
-        style: "normal" as const,
+        style: (f.italic ? "italic" : "normal") as "italic" | "normal",
       })),
     },
   );

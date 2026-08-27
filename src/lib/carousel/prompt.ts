@@ -32,6 +32,22 @@ export const PRESETS = [
   },
 ] as const;
 
+/**
+ * Tudo obrigatório e anulável de propósito.
+ *
+ * Saída estruturada da OpenAI não aceita campo opcional nem união solta: o
+ * caminho que funciona nos dois provedores é um objeto fixo onde o que não se
+ * aplica vem `null` (ou lista vazia). A conversão para o tipo de verdade
+ * acontece em `generate.ts`.
+ */
+const CardSchema = z.object({
+  kind: z.enum(["none", "bullets", "flow", "steps", "text"]),
+  title: z.string().nullable(),
+  items: z.array(z.string()),
+  body: z.string().nullable(),
+  note: z.string().nullable(),
+});
+
 export const CarouselSchema = z.object({
   title: z.string(),
   slides: z.array(
@@ -39,6 +55,11 @@ export const CarouselSchema = z.object({
       n: z.number(),
       text: z.string(),
       screenshot_hint: z.string(),
+      eyebrow: z.string().nullable(),
+      breadcrumb: z.string().nullable(),
+      subhead: z.string().nullable(),
+      kicker: z.string().nullable(),
+      card: CardSchema,
     }),
   ),
 });
@@ -91,10 +112,34 @@ REGRAS INEGOCIÁVEIS
    tela. "Configure a integração" é ruim; "cole a URL em Webhooks → Instagram" é bom.
 7. Tamanho: cada slide entre 120 e 300 caracteres. Nem picado demais, nem um
    textão. Quebra de linha só entre ideias diferentes, nunca depois de cada frase.
-8. FORMA DO SLIDE — o desenho depende disto. A PRIMEIRA linha é a manchete:
-   uma frase, no máximo ~70 caracteres, que se sustenta sozinha e é o que vai
-   sair em corpo gigante. Depois de uma linha em branco vem o apoio, em fonte
+8. FORMA DO SLIDE — o desenho depende disto. A PRIMEIRA linha de "text" é a
+   manchete: uma frase, no máximo ~70 caracteres, que se sustenta sozinha e sai
+   em corpo gigante. Depois de uma linha em branco vem o apoio, em fonte
    pequena. Manchete comprida vira bloco de texto e mata o layout.
+
+ESTRUTURA VISUAL DE CADA SLIDE
+
+Além do texto, cada slide tem campos que viram desenho. Use quando ajudarem;
+mande null quando não fizer sentido. Não force os cinco em todo slide.
+
+- eyebrow: rótulo curto em caixa alta acima do bloco. "O PROBLEMA", "A SACADA",
+  "COMO ENCONTRAR". Duas ou três palavras, nunca uma frase.
+- breadcrumb: a trilha do raciocínio em minúsculas, separada por barras:
+  "nicho / subnicho / dor-especifica". No máximo quatro pedaços.
+- subhead: UMA linha que completa a manchete, saindo em serifa itálica.
+- kicker: o fecho do slide, uma frase, com **negrito** no que importa.
+- card: o bloco em destaque, onde mora a informação com forma. Escolha o tipo:
+    "flow"    — cadeia que desce um nível a cada passo (mercado → dor). O
+                último item é o destino e sai destacado. 3 a 5 itens CURTOS,
+                de uma ou duas palavras.
+    "bullets" — lista de coisas do mesmo peso. 3 a 5 itens de até 6 palavras.
+                "note" é um parágrafo curto abaixo da lista, ou null.
+    "steps"   — passos numerados, na ordem de execução. 3 a 5.
+    "text"    — um parágrafo só, quando o conteúdo não é lista.
+    "none"    — este slide não tem cartão. items: [], body: null, note: null.
+  "title" é a frase que abre o cartão (ou null).
+
+O cartão NÃO repete a manchete. A manchete afirma; o cartão mostra.
 
 VOZ — é isto que separa de um texto de IA
 
@@ -122,7 +167,8 @@ número não entra. Ponto."
 ESTRUTURA DOS ${count} SLIDES
 
 - Slide 1 (capa): a coisa mais forte que existe no material. Precisa dar vontade
-  de arrastar sem prometer nada vago.
+  de arrastar sem prometer nada vago. Na capa, card: "none" — ela é só manchete
+  e uma linha de apoio.
 - Slide 2: o que sustenta a capa — a prova, o dado, ou o ponto mais concreto.
 ${middle}
 - Slide ${count} (fechamento): o que a pessoa faz HOJE. Uma ação, direto.
