@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 import { withApi } from "@/lib/api";
+import { normalizeHex } from "@/lib/carousel/color";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +21,9 @@ async function patchHandler(req: Request, { params }: Params) {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  for (const key of ["title", "slides", "handle", "display_name", "avatar_url", "verified", "theme"] as const) {
+  // Cor inválida vira null (= a cor padrão do tema) em vez de sujar o banco.
+  if ("accent" in body) body.accent = normalizeHex(body.accent as string | null);
+  for (const key of ["title", "slides", "handle", "display_name", "avatar_url", "verified", "theme", "accent"] as const) {
     if (key in body) patch[key] = body[key];
   }
 

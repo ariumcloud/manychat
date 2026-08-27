@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { Rich, plain } from "./text";
+import { atLightness, posterPalette, shift } from "./color";
 import { SLIDE_HEIGHT, SLIDE_WIDTH, type Carousel, type Slide, type SlideCard } from "./types";
 
 /**
@@ -25,6 +26,8 @@ export type ThemeCtx = {
   role: SlideRole;
   headline: string;
   body: string[];
+  /** Cor de destaque já resolvida: a do carrossel, ou a padrão do tema. */
+  accent: string;
 };
 
 export type FontSpec = { family: string; weight: number; italic?: boolean };
@@ -34,6 +37,8 @@ export type Theme = {
   label: string;
   hint: string;
   fonts: FontSpec[];
+  /** Usada quando o carrossel não escolheu cor. */
+  defaultAccent: string;
   render: (ctx: ThemeCtx) => ReactElement;
 };
 
@@ -90,6 +95,7 @@ const tweet: Theme = {
   id: "tweet",
   label: "Card de tweet",
   hint: "Fundo branco, print de tweet. O clássico que já estava aqui.",
+  defaultAccent: "#1d9bf0",
   fonts: [
     { family: "Inter", weight: 400 },
     { family: "Inter", weight: 700 },
@@ -145,6 +151,22 @@ const tweet: Theme = {
           ))}
         </div>
 
+        {slide.card && (
+          <div style={{ display: "flex", flexDirection: "column", marginTop: 26 }}>
+            {("items" in slide.card ? slide.card.items : [slide.card.body]).map((item, i) => (
+              <div key={i} style={{ display: "flex", marginBottom: 8 }}>
+                <Rich block={`• ${item}`} size={size - 6} color="#0f1419" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {slide.kicker && (
+          <div style={{ display: "flex", marginTop: 26 }}>
+            <Rich block={slide.kicker} size={size} color="#0f1419" />
+          </div>
+        )}
+
         {slide.image_url && <Proof url={slide.image_url} border="#eff3f4" radius={20} />}
 
         <div
@@ -170,13 +192,15 @@ const editorial: Theme = {
   id: "editorial",
   label: "Editorial",
   hint: "Preto, serifa grande e numeral gigante ao fundo. Cara de revista.",
+  defaultAccent: "#e8c47a",
   fonts: [
     { family: "Playfair Display", weight: 700 },
     { family: "Inter", weight: 400 },
     { family: "Inter", weight: 700 },
   ],
-  render: ({ carousel, slide, index, total, role, headline, body }) => {
-    const accent = "#e8c47a";
+  render: ({ carousel, slide, index, total, role, headline, body, accent: brand }) => {
+    // Fundo quase preto: a cor precisa vir clara para ler.
+    const accent = atLightness(brand, 68, 55);
     const size = headlineSize(headline, role === "capa" ? 104 : 82, 74, 60);
 
     return (
@@ -203,7 +227,7 @@ const editorial: Theme = {
             fontSize: 420,
             fontFamily: "Playfair Display",
             fontWeight: 700,
-            color: "rgba(232,196,122,0.055)",
+            color: `${atLightness(brand, 24, 35)}40`,
             lineHeight: 1,
           }}
         >
@@ -254,6 +278,18 @@ const editorial: Theme = {
             </div>
           )}
 
+          <Extras
+            slide={slide}
+            c={{
+              bg: "rgba(255,255,255,0.05)",
+              ink: "#f6f2ea",
+              muted: "#a9a294",
+              accent,
+              border: "rgba(255,255,255,0.09)",
+              kicker: "#f6f2ea",
+            }}
+          />
+
           {slide.image_url && <Proof url={slide.image_url} border="#2a2620" />}
         </div>
 
@@ -275,26 +311,20 @@ const editorial: Theme = {
 
 // --- 3. Poster --------------------------------------------------------------
 
-/** Uma cor por slide, girando. É o que dá o efeito de coleção no feed. */
-const POSTER = [
-  { bg: "#5b21b6", ink: "#f5f3ff", accent: "#fde047" },
-  { bg: "#0f766e", ink: "#ecfdf5", accent: "#fcd34d" },
-  { bg: "#be123c", ink: "#fff1f2", accent: "#fde68a" },
-  { bg: "#1d4ed8", ink: "#eff6ff", accent: "#a7f3d0" },
-  { bg: "#c2410c", ink: "#fff7ed", accent: "#fef08a" },
-];
-
 const poster: Theme = {
   id: "poster",
   label: "Pôster",
   hint: "Cor cheia trocando a cada slide e tipografia gigante. Grita no feed.",
+  defaultAccent: "#5b21b6",
   fonts: [
     { family: "Anton", weight: 400 },
     { family: "Inter", weight: 400 },
     { family: "Inter", weight: 700 },
   ],
-  render: ({ carousel, slide, index, total, role, headline, body }) => {
-    const c = POSTER[(index - 1) % POSTER.length];
+  render: ({ carousel, slide, index, total, role, headline, body, accent }) => {
+    // A paleta inteira nasce da cor escolhida — cinco tons irmãos.
+    const palette = posterPalette(accent);
+    const c = palette[(index - 1) % palette.length];
     const size = headlineSize(headline, 132, 104, 82);
 
     return (
@@ -369,6 +399,17 @@ const poster: Theme = {
             </div>
           )}
 
+          <Extras
+            slide={slide}
+            c={{
+              bg: "rgba(0,0,0,0.22)",
+              ink: c.ink,
+              muted: "rgba(255,255,255,0.72)",
+              accent: c.accent,
+              kicker: c.ink,
+            }}
+          />
+
           {slide.image_url && <Proof url={slide.image_url} border="rgba(255,255,255,0.25)" />}
         </div>
 
@@ -394,13 +435,16 @@ const neon: Theme = {
   id: "neon",
   label: "Neon",
   hint: "Gradiente escuro com brilho e cartão de vidro. Combina com IA e automação.",
+  defaultAccent: "#a78bfa",
   fonts: [
     { family: "Space Grotesk", weight: 700 },
     { family: "Inter", weight: 400 },
     { family: "Inter", weight: 700 },
   ],
-  render: ({ carousel, slide, index, total, role, headline, body }) => {
-    const accent = "#a78bfa";
+  render: ({ carousel, slide, index, total, role, headline, body, accent: brand }) => {
+    const accent = atLightness(brand, 72, 60);
+    const deep = atLightness(brand, 26, 55);
+    const warm = shift(atLightness(brand, 28, 50), 58);
     const size = headlineSize(headline, role === "capa" ? 100 : 84, 74, 60);
 
     return (
@@ -412,8 +456,8 @@ const neon: Theme = {
           flexDirection: "column",
           justifyContent: "space-between",
           background:
-            "radial-gradient(90% 60% at 15% 0%, #3b1d7a 0%, transparent 60%)," +
-            "radial-gradient(80% 50% at 100% 100%, #7c2d6b 0%, transparent 65%)," +
+            `radial-gradient(90% 60% at 15% 0%, ${deep} 0%, transparent 60%),` +
+            `radial-gradient(80% 50% at 100% 100%, ${warm} 0%, transparent 65%),` +
             "linear-gradient(160deg, #0d0b1a 0%, #08070f 100%)",
           padding: "92px 78px",
           fontFamily: "Inter",
@@ -426,14 +470,14 @@ const neon: Theme = {
               alignItems: "center",
               borderRadius: 999,
               padding: "12px 26px",
-              background: "rgba(167,139,250,0.14)",
-              border: "1px solid rgba(167,139,250,0.35)",
+              background: `${accent}24`,
+              border: `1px solid ${accent}59`,
             }}
           >
             <div
               style={{ display: "flex", width: 12, height: 12, borderRadius: 12, background: accent }}
             />
-            <span style={{ fontSize: 24, color: "#d6ccff", marginLeft: 12, letterSpacing: 2 }}>
+            <span style={{ fontSize: 24, color: atLightness(brand, 86, 40), marginLeft: 12, letterSpacing: 2 }}>
               {role === "capa" ? "FIO NOVO" : role === "final" ? "SUA VEZ" : `PASSO ${index - 1}`}
             </span>
           </div>
@@ -477,11 +521,23 @@ const neon: Theme = {
             </div>
           )}
 
-          {slide.image_url && <Proof url={slide.image_url} border="rgba(167,139,250,0.3)" />}
+          <Extras
+            slide={slide}
+            c={{
+              bg: "rgba(255,255,255,0.045)",
+              ink: "#f4f1ff",
+              muted: "#b9b3d4",
+              accent,
+              border: "rgba(255,255,255,0.09)",
+              kicker: "#f4f1ff",
+            }}
+          />
+
+          {slide.image_url && <Proof url={slide.image_url} border={`${accent}4d`} />}
         </div>
 
         <div style={{ display: "flex", alignItems: "center" }}>
-          <Avatar url={carousel.avatar_url} size={62} ring="rgba(167,139,250,0.4)" />
+          <Avatar url={carousel.avatar_url} size={62} ring={`${accent}66`} />
           <span style={{ fontSize: 28, color: "#8b85a8", marginLeft: 18 }}>
             {carousel.handle ? `@${carousel.handle}` : ""}
           </span>
@@ -497,12 +553,13 @@ const terminal: Theme = {
   id: "terminal",
   label: "Terminal",
   hint: "Monoespaçada, verde no preto. Para conteúdo técnico e bastidor.",
+  defaultAccent: "#4ade80",
   fonts: [
     { family: "JetBrains Mono", weight: 400 },
     { family: "JetBrains Mono", weight: 700 },
   ],
-  render: ({ carousel, slide, index, total, role, headline, body }) => {
-    const green = "#4ade80";
+  render: ({ carousel, slide, index, total, role, headline, body, accent }) => {
+    const green = atLightness(accent, 66, 55);
     const size = headlineSize(headline, 72, 60, 50);
 
     return (
@@ -586,6 +643,20 @@ const terminal: Theme = {
             </div>
           )}
 
+          <Extras
+            slide={slide}
+            c={{
+              bg: "#0d1117",
+              ink: "#e6edf3",
+              muted: "#93a4b3",
+              accent: green,
+              radius: 14,
+              border: "#1c2530",
+              kicker: "#e6edf3",
+            }}
+            mono="JetBrains Mono"
+          />
+
           {slide.image_url && <Proof url={slide.image_url} border="#1c2530" radius={14} />}
         </div>
 
@@ -626,7 +697,23 @@ const D = {
   rule: "#d9d2c2",
 };
 
-function DossieCard({ card }: { card: SlideCard }) {
+type CardColors = {
+  bg: string;
+  ink: string;
+  muted: string;
+  accent: string;
+  radius?: number;
+  border?: string;
+};
+
+/**
+ * O bloco estruturado do slide, com a paleta de cada tema.
+ *
+ * É genérico de propósito: a IA escreve lista, cadeia ou passos sem saber que
+ * tema vai desenhar. Se cada tema entendesse só o próprio formato, trocar de
+ * tema apagaria conteúdo da imagem.
+ */
+function StructuredCard({ card, c }: { card: SlideCard; c: CardColors }) {
   const title = "title" in card ? card.title : undefined;
 
   return (
@@ -634,21 +721,22 @@ function DossieCard({ card }: { card: SlideCard }) {
       style={{
         display: "flex",
         flexDirection: "column",
-        background: D.card,
-        borderRadius: 30,
+        background: c.bg,
+        borderRadius: c.radius ?? 30,
         padding: "42px 46px",
         marginTop: 40,
+        ...(c.border ? { border: `1px solid ${c.border}` } : {}),
       }}
     >
       {title && (
         <div style={{ display: "flex", marginBottom: 26 }}>
-          <Rich block={title} size={40} color={D.cardInk} weight={700} boldColor={D.rust} lineHeight={1.28} />
+          <Rich block={title} size={40} color={c.ink} weight={700} boldColor={c.accent} lineHeight={1.28} />
         </div>
       )}
 
       {card.kind === "text" && (
         <div style={{ display: "flex" }}>
-          <Rich block={card.body} size={34} color="#a9b0bd" lineHeight={1.5} boldColor={D.cardInk} />
+          <Rich block={card.body} size={34} color={c.muted} lineHeight={1.5} boldColor={c.ink} />
         </div>
       )}
 
@@ -656,13 +744,13 @@ function DossieCard({ card }: { card: SlideCard }) {
         <div style={{ display: "flex", flexDirection: "column" }}>
           {card.items.map((item, i) => (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", marginBottom: 14 }}>
-              <span style={{ fontSize: 34, color: D.rust, marginRight: 16, lineHeight: 1.45 }}>→</span>
-              <Rich block={item} size={34} color={D.cardInk} lineHeight={1.45} boldColor="#ffffff" />
+              <span style={{ fontSize: 34, color: c.accent, marginRight: 16, lineHeight: 1.45 }}>→</span>
+              <Rich block={item} size={34} color={c.ink} lineHeight={1.45} boldColor={c.accent} />
             </div>
           ))}
           {card.note && (
             <div style={{ display: "flex", marginTop: 22 }}>
-              <Rich block={card.note} size={32} color="#98a0ad" lineHeight={1.5} boldColor={D.cardInk} />
+              <Rich block={card.note} size={32} color={c.muted} lineHeight={1.5} boldColor={c.ink} />
             </div>
           )}
         </div>
@@ -677,14 +765,14 @@ function DossieCard({ card }: { card: SlideCard }) {
                   fontSize: 38,
                   fontWeight: 700,
                   letterSpacing: 1,
-                  color: i === card.items.length - 1 ? D.rust : D.cardInk,
+                  color: i === card.items.length - 1 ? c.accent : c.ink,
                   textTransform: "uppercase",
                 }}
               >
                 {item}
               </span>
               {i < card.items.length - 1 && (
-                <span style={{ fontSize: 32, color: D.rust, margin: "6px 0" }}>↓</span>
+                <span style={{ fontSize: 32, color: c.accent, margin: "6px 0" }}>↓</span>
               )}
             </div>
           ))}
@@ -696,19 +784,73 @@ function DossieCard({ card }: { card: SlideCard }) {
           {card.items.map((item, i) => (
             <div key={i} style={{ display: "flex", alignItems: "flex-start", marginBottom: 16 }}>
               <span
-                style={{
-                  fontSize: 34,
-                  fontWeight: 700,
-                  color: D.rust,
-                  marginRight: 16,
-                  lineHeight: 1.4,
-                }}
+                style={{ fontSize: 34, fontWeight: 700, color: c.accent, marginRight: 16, lineHeight: 1.4 }}
               >
                 {i + 1}.
               </span>
-              <Rich block={item} size={34} color={D.cardInk} weight={700} lineHeight={1.4} boldColor="#ffffff" />
+              <Rich block={item} size={34} color={c.ink} weight={700} lineHeight={1.4} boldColor={c.accent} />
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * As peças estruturadas do slide (rótulo, trilha, cartão, fecho) desenhadas na
+ * paleta de um tema. Cada tema chama isto com as suas cores.
+ */
+function Extras({
+  slide,
+  c,
+  mono,
+}: {
+  slide: Slide;
+  c: CardColors & { kicker: string };
+  mono?: string;
+}) {
+  if (!slide.eyebrow && !slide.breadcrumb && !slide.card && !slide.kicker) return null;
+
+  // Coluna de verdade, não Fragment: o Satori não achata Fragment dentro de um
+  // flex — os blocos saíam lado a lado, atropelando a margem direita.
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {(slide.eyebrow || slide.breadcrumb) && (
+        <div style={{ display: "flex", flexDirection: "column", marginTop: 30 }}>
+          {slide.eyebrow && (
+            <span
+              style={{
+                fontSize: 26,
+                fontWeight: 700,
+                letterSpacing: 1.5,
+                textTransform: "uppercase",
+                color: c.accent,
+              }}
+            >
+              {slide.eyebrow}
+            </span>
+          )}
+          {slide.breadcrumb && (
+            <span
+              style={{
+                fontSize: 27,
+                color: c.muted,
+                marginTop: 8,
+                ...(mono ? { fontFamily: mono } : {}),
+              }}
+            >
+              {slide.breadcrumb}
+            </span>
+          )}
+        </div>
+      )}
+
+      {slide.card && <StructuredCard card={slide.card} c={c} />}
+
+      {slide.kicker && (
+        <div style={{ display: "flex", marginTop: 34 }}>
+          <Rich block={slide.kicker} size={36} color={c.kicker} weight={700} boldColor={c.accent} lineHeight={1.35} />
         </div>
       )}
     </div>
@@ -719,6 +861,7 @@ const dossie: Theme = {
   id: "dossie",
   label: "Dossiê",
   hint: "Papel creme, manchete pesada e cartão escuro com lista, cadeia ou passos. Capa usa o print como fundo.",
+  defaultAccent: "#c8552b",
   fonts: [
     { family: "Archivo Black", weight: 400 },
     { family: "Instrument Serif", weight: 400, italic: true },
@@ -726,9 +869,12 @@ const dossie: Theme = {
     { family: "Inter", weight: 700 },
     { family: "JetBrains Mono", weight: 400 },
   ],
-  render: ({ carousel, slide, index, role, headline, body }) => {
+  render: ({ carousel, slide, index, role, headline, body, accent: brand }) => {
     const handle = carousel.handle ? `@${carousel.handle}` : "";
     const num = String(index).padStart(2, "0");
+    // Papel claro pede cor escura para ler; a capa é escura e pede o contrário.
+    const accent = atLightness(brand, 45, 55);
+    const accentOnDark = atLightness(brand, 66, 60);
 
     // Capa com print: a imagem vira o fundo e o texto senta por cima.
     if (role === "capa" && slide.image_url) {
@@ -781,7 +927,7 @@ const dossie: Theme = {
                 color="#ffffff"
                 weight={400}
                 boldWeight={400}
-                boldColor="#37e07f"
+                boldColor={accentOnDark}
                 lineHeight={1.03}
                 spacing={-1}
                 family="Archivo Black"
@@ -791,7 +937,7 @@ const dossie: Theme = {
               <div style={{ display: "flex", flexDirection: "column", marginTop: 26 }}>
                 {body.map((b, i) => (
                   <div key={i} style={{ display: "flex", marginBottom: 6 }}>
-                    <Rich block={b} size={30} color="#dfe3e8" weight={700} lineHeight={1.34} boldColor="#37e07f" />
+                    <Rich block={b} size={30} color="#dfe3e8" weight={700} lineHeight={1.34} boldColor={accentOnDark} />
                   </div>
                 ))}
               </div>
@@ -839,7 +985,7 @@ const dossie: Theme = {
               color={D.ink}
               weight={400}
               boldWeight={400}
-              boldColor={D.rust}
+              boldColor={accent}
               lineHeight={1.02}
               spacing={-1}
               family="Archivo Black"
@@ -851,7 +997,7 @@ const dossie: Theme = {
               <span
                 style={{
                   fontSize: 42,
-                  color: D.rust,
+                  color: accent,
                   fontFamily: "Instrument Serif",
                   fontStyle: "italic",
                   lineHeight: 1.25,
@@ -871,7 +1017,7 @@ const dossie: Theme = {
                     fontWeight: 700,
                     letterSpacing: 1.5,
                     textTransform: "uppercase",
-                    color: D.rust,
+                    color: accent,
                   }}
                 >
                   {slide.eyebrow}
@@ -896,7 +1042,7 @@ const dossie: Theme = {
               ancorado no topo, cartão curto deixava uma faixa vazia embaixo. */}
           <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center" }}>
           {slide.card ? (
-            <DossieCard card={slide.card} />
+            <StructuredCard card={slide.card} c={{ bg: D.card, ink: D.cardInk, muted: "#98a0ad", accent: accentOnDark }} />
           ) : (
             body.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", marginTop: 36 }}>
@@ -915,7 +1061,7 @@ const dossie: Theme = {
 
         {slide.kicker && (
           <div style={{ display: "flex", marginTop: 40 }}>
-            <Rich block={slide.kicker} size={38} color={D.ink} weight={700} boldColor={D.rust} lineHeight={1.35} />
+            <Rich block={slide.kicker} size={38} color={D.ink} weight={700} boldColor={accent} lineHeight={1.35} />
           </div>
         )}
       </div>

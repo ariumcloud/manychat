@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { loadFont } from "./font";
 import { paragraphs } from "./text";
+import { normalizeHex } from "./color";
 import { getTheme, roleOf, splitContent } from "./themes";
 import { SLIDE_HEIGHT, SLIDE_WIDTH, type Carousel, type Slide } from "./types";
 
@@ -33,6 +34,7 @@ export async function renderSlide(carousel: Carousel, index: number): Promise<Im
       role: roleOf(index, total),
       headline,
       body,
+      accent: normalizeHex(carousel.accent) ?? theme.defaultAccent,
     }),
     {
       width: SLIDE_WIDTH,

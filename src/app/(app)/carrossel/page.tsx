@@ -32,13 +32,121 @@ type Carousel = {
   published_at?: string | null;
   ig_media_id?: string | null;
   theme?: string | null;
+  accent?: string | null;
 };
 
 type Preset = { label: string; text: string };
-type ThemeOption = { id: string; label: string; hint: string };
+type ThemeOption = { id: string; label: string; hint: string; defaultAccent: string };
+
+/** Atalhos de cor. O campo hex ao lado aceita qualquer outra. */
+const CORES = [
+  { label: "Roxo", hex: "#7c5cff" },
+  { label: "Ferrugem", hex: "#c8552b" },
+  { label: "Verde", hex: "#34d399" },
+  { label: "Azul", hex: "#3b82f6" },
+  { label: "Rosa", hex: "#f9578e" },
+  { label: "Dourado", hex: "#e8c47a" },
+];
+
+/**
+ * Miniatura de um tema. É um slide de exemplo renderizado pelo mesmo código que
+ * gera o carrossel — o que você vê aqui é exatamente o que sai.
+ */
+function ThemeCard({
+  theme,
+  accent,
+  selected,
+  onSelect,
+}: {
+  theme: ThemeOption;
+  accent: string | null;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const src = `/api/carousels/theme-preview/${theme.id}${accent ? `?accent=${encodeURIComponent(accent)}` : ""}`;
+
+  return (
+    <button
+      onClick={onSelect}
+      title={theme.hint}
+      className={
+        "group flex w-[132px] shrink-0 flex-col gap-2 rounded-xl border p-2 text-left transition-all " +
+        (selected
+          ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+          : "border-[var(--border)] bg-[var(--bg)] hover:border-[var(--border-strong)]")
+      }
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={theme.label}
+        loading="lazy"
+        className="aspect-[4/5] w-full rounded-lg border border-[var(--border)] object-cover"
+      />
+      <span className="px-0.5 text-xs font-medium">{theme.label}</span>
+    </button>
+  );
+}
 
 const EXEMPLO =
   "Montei uma ferramenta que transforma uma ideia em carrossel pronto. Eu escrevo o que aconteceu, ela devolve os slides no formato card de tweet e renderiza tudo em imagem sozinha — sem Canva, sem template. Este carrossel foi feito por ela. A regra que eu programei: nunca inventar número, só usar o que é real e tem print pra provar.";
+
+
+/**
+ * Escolha de cor: atalhos + hex livre. `null` = cada tema usa a cor dele.
+ */
+function ColorPicker({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (hex: string | null) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        onClick={() => onChange(null)}
+        title="Cada tema com a cor original"
+        className={
+          "rounded-lg px-3 py-1.5 text-xs transition-colors " +
+          (value === null
+            ? "bg-[var(--accent)] text-white"
+            : "bg-[var(--bg)] text-[var(--fg-muted)] hover:text-[var(--fg)]")
+        }
+      >
+        padrão
+      </button>
+
+      {CORES.map((c) => (
+        <button
+          key={c.hex}
+          onClick={() => onChange(c.hex)}
+          title={c.label}
+          aria-label={c.label}
+          className={
+            "h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 " +
+            (value?.toLowerCase() === c.hex ? "border-[var(--fg)]" : "border-transparent")
+          }
+          style={{ background: c.hex }}
+        />
+      ))}
+
+      <input
+        type="color"
+        value={value ?? "#7c5cff"}
+        onChange={(e) => onChange(e.target.value)}
+        title="Escolher outra cor"
+        className="h-8 w-8 cursor-pointer rounded-full border-2 border-[var(--border-strong)] bg-transparent p-0"
+      />
+      <input
+        className="input w-28 font-mono text-xs"
+        placeholder="#7c5cff"
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value.trim() || null)}
+      />
+    </div>
+  );
+}
 
 export default function CarrosselPage() {
   const [list, setList] = useState<Carousel[]>([]);
@@ -54,7 +162,8 @@ export default function CarrosselPage() {
   const [slideCount, setSlideCount] = useState(8);
   const [range, setRange] = useState({ min: 4, max: 10 });
   const [themes, setThemes] = useState<ThemeOption[]>([]);
-  const [theme, setTheme] = useState("editorial");
+  const [theme, setTheme] = useState("dossie");
+  const [accent, setAccent] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -96,7 +205,7 @@ export default function CarrosselPage() {
     const { ok, data, error: err } = await fetchJson<{ carousel: Carousel }>("/api/carousels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brief, slide_count: slideCount, direction, theme }),
+      body: JSON.stringify({ brief, slide_count: slideCount, direction, theme, accent }),
     });
 
     if (ok && data) {
@@ -211,27 +320,27 @@ export default function CarrosselPage() {
           </div>
 
           {themes.length > 0 && (
-            <div className="mt-4">
+            <div className="mt-5">
               <span className="label">Tema visual</span>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex gap-2 overflow-x-auto pb-1">
                 {themes.map((t) => (
-                  <button
+                  <ThemeCard
                     key={t.id}
-                    onClick={() => setTheme(t.id)}
-                    className={
-                      "rounded-lg px-3 py-2 text-sm transition-colors " +
-                      (theme === t.id
-                        ? "bg-[var(--accent)] text-white"
-                        : "bg-[var(--bg)] text-[var(--fg-muted)] hover:text-[var(--fg)]")
-                    }
-                  >
-                    {t.label}
-                  </button>
+                    theme={t}
+                    accent={accent}
+                    selected={theme === t.id}
+                    onSelect={() => setTheme(t.id)}
+                  />
                 ))}
               </div>
               <p className="mt-2 text-xs text-[var(--fg-dim)]">
                 {themes.find((t) => t.id === theme)?.hint ?? "Dá pra trocar depois, sem regerar o texto."}
               </p>
+
+              <div className="mt-4">
+                <span className="label">Cor de destaque</span>
+                <ColorPicker value={accent} onChange={setAccent} />
+              </div>
             </div>
           )}
 
@@ -337,6 +446,7 @@ function Editor({
 }) {
   const [slides, setSlides] = useState<Slide[]>(carousel.slides);
   const [theme, setTheme] = useState(carousel.theme ?? "tweet");
+  const [accent, setAccent] = useState<string | null>(carousel.accent ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Muda quando algo é salvo, para forçar o navegador a rebuscar os PNGs.
@@ -350,14 +460,14 @@ function Editor({
     setSlides((prev) => prev.map((s) => (s.n === n ? { ...s, text } : s)));
   }
 
-  /** Troca o tema e redesenha na hora — sem isto teria que salvar pra ver. */
-  async function applyTheme(next: string) {
+  /** Aparência muda e redesenha na hora — sem isto teria que salvar pra ver. */
+  async function applyStyle(patch: { theme?: string; accent?: string | null }) {
     const { ok, error: err } = await fetchJson(`/api/carousels/${carousel.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ theme: next }),
+      body: JSON.stringify(patch),
     });
-    if (!ok) setError(err ?? "Não consegui trocar o tema.");
+    if (!ok) setError(err ?? "Não consegui mudar a aparência.");
     else setStamp((v) => v + 1);
   }
 
@@ -368,7 +478,7 @@ function Editor({
     const { ok, error: err } = await fetchJson(`/api/carousels/${carousel.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slides, theme }),
+      body: JSON.stringify({ slides, theme, accent }),
     });
 
     if (!ok) setError(err ?? "Não consegui salvar.");
@@ -433,28 +543,34 @@ function Editor({
         {themes.length > 0 && (
           <div className="card mb-5 p-4">
             <span className="label">Tema visual</span>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {themes.map((t) => (
-                <button
+                <ThemeCard
                   key={t.id}
-                  title={t.hint}
-                  onClick={() => {
+                  theme={t}
+                  accent={accent}
+                  selected={theme === t.id}
+                  onSelect={() => {
                     setTheme(t.id);
-                    void applyTheme(t.id);
+                    void applyStyle({ theme: t.id });
                   }}
-                  className={
-                    theme === t.id
-                      ? "btn btn-primary"
-                      : "btn btn-ghost"
-                  }
-                >
-                  {t.label}
-                </button>
+                />
               ))}
             </div>
             <p className="mt-2.5 text-xs text-[var(--fg-dim)]">
               {themes.find((t) => t.id === theme)?.hint}
             </p>
+
+            <div className="mt-4">
+              <span className="label">Cor de destaque</span>
+              <ColorPicker
+                value={accent}
+                onChange={(hex) => {
+                  setAccent(hex);
+                  void applyStyle({ accent: hex });
+                }}
+              />
+            </div>
           </div>
         )}
 

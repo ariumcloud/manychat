@@ -46,6 +46,8 @@ export type Carousel = {
   slides: Slide[];
   /** Tema visual do slide. Ver `themes.tsx`. */
   theme?: string | null;
+  /** Cor de destaque em hex. Vazio = a cor padrão do tema. */
+  accent?: string | null;
   status: string;
   published_at: string | null;
   ig_media_id: string | null;
