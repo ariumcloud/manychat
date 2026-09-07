@@ -73,39 +73,84 @@ export function Inspector({ node, onChange, onDelete }: Props) {
           <div>
             <span className="label">Botões (máx. 3)</span>
             <div className="space-y-3">
-              {buttons.map((b, i) => (
-                <div key={i} className="card space-y-2 p-3">
-                  <input
-                    className="input"
-                    placeholder="Texto do botão"
-                    value={b.label}
-                    onChange={(e) => setButton(i, { label: e.target.value })}
-                  />
-                  {b.kind === "url" ? (
-                    <input
-                      className="input"
-                      placeholder="https://…"
-                      value={b.url}
-                      onChange={(e) => setButton(i, { url: e.target.value } as Partial<FlowButton>)}
-                    />
-                  ) : (
-                    <input
-                      className="input"
-                      placeholder="payload"
-                      value={b.payload}
-                      onChange={(e) =>
-                        setButton(i, { payload: e.target.value } as Partial<FlowButton>)
-                      }
-                    />
-                  )}
-                  <button
-                    className="btn btn-danger w-full"
-                    onClick={() => onChange({ buttons: buttons.filter((_, idx) => idx !== i) })}
-                  >
-                    <Trash2 size={14} /> Remover
-                  </button>
-                </div>
-              ))}
+              {buttons.map((b, i) => {
+                const isUrl = b.kind !== "reply";
+                return (
+                  <div key={i} className="card space-y-2.5 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium uppercase tracking-wider text-[var(--fg-dim)]">
+                        Botão {i + 1}
+                      </span>
+                      <div className="flex rounded-md border border-[var(--border)] p-0.5 text-[11px]">
+                        <button
+                          type="button"
+                          className={`rounded px-1.5 py-0.5 transition-colors ${isUrl ? "bg-[var(--accent)] text-white" : "text-[var(--fg-muted)]"}`}
+                          onClick={() => setButton(i, { kind: "url", url: ("url" in b ? b.url : "") || "" })}
+                        >
+                          Link (URL)
+                        </button>
+                        <button
+                          type="button"
+                          className={`rounded px-1.5 py-0.5 transition-colors ${!isUrl ? "bg-[var(--accent)] text-white" : "text-[var(--fg-muted)]"}`}
+                          onClick={() => setButton(i, { kind: "reply", payload: ("payload" in b ? b.payload : "") || "" })}
+                        >
+                          Ação (Payload)
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-[11px] text-[var(--fg-dim)]">
+                        Texto exibido no botão
+                      </label>
+                      <input
+                        className="input"
+                        placeholder="Ex: Ver produto, Comprar agora"
+                        value={b.label}
+                        onChange={(e) => setButton(i, { label: e.target.value })}
+                      />
+                    </div>
+
+                    {isUrl ? (
+                      <div>
+                        <label className="mb-1 block text-[11px] font-medium text-[var(--accent)]">
+                          Link do produto / URL de destino
+                        </label>
+                        <input
+                          className="input font-mono text-xs"
+                          placeholder="https://seusite.com/produto"
+                          value={"url" in b ? b.url : ""}
+                          onChange={(e) => setButton(i, { url: e.target.value } as Partial<FlowButton>)}
+                        />
+                        <p className="mt-1 text-[10px] text-[var(--fg-dim)]">
+                          O Instagram enviará este link como botão clicável na DM.
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="mb-1 block text-[11px] text-[var(--fg-dim)]">
+                          Payload (identificador interno)
+                        </label>
+                        <input
+                          className="input font-mono text-xs"
+                          placeholder="ex: flow:123 ou action_name"
+                          value={"payload" in b ? b.payload : ""}
+                          onChange={(e) =>
+                            setButton(i, { payload: e.target.value } as Partial<FlowButton>)
+                          }
+                        />
+                      </div>
+                    )}
+
+                    <button
+                      className="btn btn-danger w-full mt-1"
+                      onClick={() => onChange({ buttons: buttons.filter((_, idx) => idx !== i) })}
+                    >
+                      <Trash2 size={14} /> Remover botão
+                    </button>
+                  </div>
+                );
+              })}
               {buttons.length < 3 && (
                 <button
                   className="btn btn-ghost w-full"

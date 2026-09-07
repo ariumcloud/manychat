@@ -116,13 +116,25 @@ export function ButtonsNode({ data, selected }: Props) {
   return (
     <Standard selected={!!selected} icon={MousePointerClick} title="Botões" empty="sem botões">
       {data.text && <p className="mb-2 whitespace-pre-wrap">{data.text}</p>}
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         {(data.buttons ?? []).map((b, i) => (
           <div
             key={i}
-            className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-center text-[12px] text-[var(--accent)]"
+            className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-2.5 py-1.5 text-center text-[12px]"
           >
-            {b.label}
+            <div className="font-medium text-[var(--accent)]">{b.label || "Sem rótulo"}</div>
+            {b.kind === "url" || (!("kind" in b) && "url" in b) ? (
+              <div
+                className="mt-0.5 truncate font-mono text-[10px] text-[var(--fg-dim)]"
+                title={"url" in b ? (b as { url?: string }).url : ""}
+              >
+                {"url" in b && (b as { url?: string }).url ? (b as { url?: string }).url : "sem link configurado"}
+              </div>
+            ) : (
+              <div className="mt-0.5 truncate font-mono text-[10px] text-[var(--fg-dim)]">
+                payload: {"payload" in b ? (b as { payload?: string }).payload : ""}
+              </div>
+            )}
           </div>
         ))}
       </div>
