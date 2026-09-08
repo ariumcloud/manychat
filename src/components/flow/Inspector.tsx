@@ -54,6 +54,35 @@ export function Inspector({ node, onChange, onDelete }: Props) {
           </div>
         )}
 
+        {node.type === "text" && (
+          <div className="card p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-[var(--fg-dim)]">Link anexado no texto</span>
+              {d.link?.url && (
+                <button
+                  type="button"
+                  className="text-[11px] text-[var(--danger)] hover:underline"
+                  onClick={() => onChange({ link: undefined })}
+                >
+                  Remover link
+                </button>
+              )}
+            </div>
+            <input
+              className="input font-mono text-xs"
+              placeholder="https://… (opcional)"
+              value={d.link?.url ?? ""}
+              onChange={(e) => {
+                const val = e.target.value.trim();
+                onChange({ link: val ? { url: val, label: d.link?.label } : undefined });
+              }}
+            />
+            <p className="text-[10px] text-[var(--fg-dim)]">
+              Se preenchido, o link vai anexado ao fim desta mensagem. Deixe vazio se estiver usando um bloco de Botões conectado.
+            </p>
+          </div>
+        )}
+
         {node.type === "image" && (
           <div>
             <label className="label" htmlFor="i-url">

@@ -96,6 +96,13 @@ export function TextNode({ data, selected }: Props) {
   return (
     <Standard selected={!!selected} icon={MessageSquare} title="Mensagem" empty="mensagem vazia">
       {data.text && <p className="whitespace-pre-wrap">{data.text}</p>}
+      {data.link?.url && (
+        <div className="mt-2 rounded-md border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-[11px]">
+          <span className="truncate block font-mono text-[10px] text-[var(--accent)]" title={data.link.url}>
+            🔗 {data.link.url}
+          </span>
+        </div>
+      )}
     </Standard>
   );
 }
