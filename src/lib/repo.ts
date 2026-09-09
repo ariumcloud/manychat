@@ -60,10 +60,17 @@ export async function getAccount(force = false): Promise<Account> {
   return data as Account;
 }
 
-/** Conta conectada sem tocar na Meta. null se ainda nao conectou. */
+/** Conta conectada sem tocar na Meta. null se ainda nao conectou. Cacheia por 5 minutos na RAM. */
 export async function getAccountCached(): Promise<Account | null> {
+  if (accountCache && Date.now() - accountCache.at < 5 * 60_000) {
+    return accountCache.value;
+  }
   const { data } = await db().from("mc_accounts").select("*").limit(1).maybeSingle();
-  return (data as Account) ?? null;
+  if (data) {
+    accountCache = { value: data as Account, at: Date.now() };
+    return data as Account;
+  }
+  return null;
 }
 
 export type Contact = {

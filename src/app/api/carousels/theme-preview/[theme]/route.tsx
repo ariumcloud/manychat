@@ -3,7 +3,7 @@ import { normalizeHex } from "@/lib/carousel/color";
 import type { Carousel } from "@/lib/carousel/types";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const revalidate = 86400;
 
 /**
  * Miniatura de um tema, para a pessoa ver antes de escolher.

@@ -43,6 +43,7 @@ async function call<T>(
     },
     body: init.body ? JSON.stringify(init.body) : undefined,
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
 
   const text = await res.text();

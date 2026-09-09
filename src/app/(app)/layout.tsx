@@ -1,7 +1,6 @@
 import { Sidebar } from "@/components/Sidebar";
 import { getAccountCached } from "@/lib/repo";
 
-export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Se o Supabase ainda nao esta configurado, o painel continua abrindo:

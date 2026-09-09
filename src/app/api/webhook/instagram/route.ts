@@ -11,7 +11,14 @@ import { replyToComment } from "@/lib/meta/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 15;
+
+// Cache em memória para deduplicação rápida de webhooks sem bater no banco (10 min TTL)
+const seenDedupeKeys = new Map<string, number>();
+
+// Cache em memória para gatilhos e fluxos durante rajadas de comentários (30 seg TTL)
+const triggersCache = new Map<string, { triggers: Trigger[]; at: number }>();
+const flowCache = new Map<string, { flow: Flow | null; at: number }>();
 
 /**
  * Sem estas variaveis o webhook nao tem como funcionar. Melhor responder um erro
@@ -104,6 +111,18 @@ async function processWebhook(body: WebhookBody) {
   }
 
   async function alreadySeen(dedupeKey: string, object: string | undefined, payload: unknown) {
+    const now = Date.now();
+    // Checa cache na RAM primeiro — descarta reentregas instantaneamente
+    if (seenDedupeKeys.has(dedupeKey)) return true;
+
+    // Limpa chaves antigas se o mapa crescer muito
+    if (seenDedupeKeys.size > 1000) {
+      for (const [k, ts] of seenDedupeKeys) {
+        if (now - ts > 10 * 60_000) seenDedupeKeys.delete(k);
+      }
+    }
+    seenDedupeKeys.set(dedupeKey, now);
+
     const { error } = await supabase
       .from("mc_webhook_events")
       .insert({ dedupe_key: dedupeKey, object: object ?? null, payload: payload as object });
@@ -121,20 +140,34 @@ async function processWebhook(body: WebhookBody) {
 }
 
 async function loadTriggers(accountId: string, kind: TriggerKind): Promise<Trigger[]> {
+  const cacheKey = `${accountId}:${kind}`;
+  const cached = triggersCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < 30_000) {
+    return cached.triggers;
+  }
+
   const { data } = await db()
     .from("mc_triggers")
     .select("*")
     .eq("account_id", accountId)
     .eq("kind", kind)
     .eq("enabled", true);
-  return (data ?? []) as Trigger[];
+
+  const triggers = (data ?? []) as Trigger[];
+  triggersCache.set(cacheKey, { triggers, at: Date.now() });
+  return triggers;
 }
 
 async function loadFlow(flowId: string): Promise<Flow | null> {
+  const cached = flowCache.get(flowId);
+  if (cached && Date.now() - cached.at < 30_000) {
+    return cached.flow;
+  }
+
   const { data } = await db().from("mc_flows").select("*").eq("id", flowId).maybeSingle();
-  if (!data) return null;
-  if (data.status !== "live") return null;
-  return data as Flow;
+  const flow = data && data.status === "live" ? (data as Flow) : null;
+  flowCache.set(flowId, { flow, at: Date.now() });
+  return flow;
 }
 
 // --- DMs -------------------------------------------------------------------

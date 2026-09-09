@@ -7,7 +7,7 @@ import { getAccountCached } from "@/lib/repo";
 import { configStatus } from "@/lib/env";
 import { timeAgo } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 const DAYS = 14;
 
