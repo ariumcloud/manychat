@@ -11,7 +11,12 @@ import { replyToComment } from "@/lib/meta/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 15;
+// O processamento roda depois da resposta (after()), mas o Meta manda
+// varios eventos por chamada e o fluxo pode ter multiplos passos de "esperar"
+// (ate 8s cada, ver MAX_DELAY_SECONDS) em sequencia. 15s estava insuficiente
+// e a funcao estava sendo morta no meio de fluxos reais (ver logs de
+// "Task timed out after 15 seconds"), cortando mensagens da automacao.
+export const maxDuration = 60;
 
 // Cache em memória para deduplicação rápida de webhooks sem bater no banco (10 min TTL)
 const seenDedupeKeys = new Map<string, number>();
