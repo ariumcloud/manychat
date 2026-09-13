@@ -1,9 +1,26 @@
 import { createClient } from "@supabase/supabase-js";
 import { env } from "./env";
 
+/**
+ * O projeto Supabase e compartilhado com varios outros produtos (CRM, UTM
+ * tracking, etc.) e o PostgREST dele vem derrubando threads por timeout sob
+ * carga alheia (ver "Warp server error: Thread killed by timeout manager" nos
+ * logs). Sem um teto aqui, uma chamada presa arrasta a invocacao inteira ate
+ * o maxDuration da function — o webhook so acaba morto, sem nem gravar o erro.
+ * 8s da margem pra uma query normal e ainda falha bem antes do teto de 60s.
+ */
+const SUPABASE_TIMEOUT_MS = 8_000;
+
+function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SUPABASE_TIMEOUT_MS);
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 function make() {
   return createClient(env.supabaseUrl, env.supabaseServiceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: fetchWithTimeout },
   });
 }
 

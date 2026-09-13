@@ -24,6 +24,16 @@ import type { Flow, FlowEdge, FlowNode } from "./types";
 const MAX_DELAY_SECONDS = 8;
 const MAX_STEPS = 40;
 
+/**
+ * Teto de duracao do runFlow inteiro, com margem sob o maxDuration=60s da
+ * function (ver route.ts). Sem isso, um fluxo com varios delays + uma chamada
+ * ao Supabase que demora (o projeto e compartilhado com outros produtos e o
+ * PostgREST vem sofrendo timeout sob carga alheia) so morre pelo teto da
+ * Vercel — sem gravar erro, sem status final, sem log. Aqui o proprio fluxo
+ * se encerra antes disso, de forma limpa.
+ */
+const RUN_DEADLINE_MS = 45_000;
+
 export type RunContext = {
   accountId: string;
   contactId: string;
@@ -328,8 +338,14 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
   let node = startNode(flow, ctx.startNodeId);
   if (!node) return finish("skipped", "Fluxo vazio.");
 
+  const startedAt = Date.now();
+
   try {
     while (node && steps < MAX_STEPS) {
+      if (Date.now() - startedAt > RUN_DEADLINE_MS) {
+        return finish("failed", "Tempo do fluxo esgotado (proximo do limite da function).");
+      }
+
       let handle: string | undefined;
 
       switch (node.type) {
@@ -464,8 +480,9 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
         }
 
         case "delay": {
-          const seconds = Math.min(node.data.seconds ?? 1, MAX_DELAY_SECONDS);
-          await new Promise((r) => setTimeout(r, seconds * 1000));
+          const remainingMs = RUN_DEADLINE_MS - (Date.now() - startedAt);
+          const seconds = Math.min(node.data.seconds ?? 1, MAX_DELAY_SECONDS, Math.max(0, remainingMs / 1000));
+          if (seconds > 0) await new Promise((r) => setTimeout(r, seconds * 1000));
           break;
         }
 
