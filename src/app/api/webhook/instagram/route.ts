@@ -73,21 +73,8 @@ export async function POST(req: Request) {
   }
 
   const raw = await req.text();
-  const sigHeader = req.headers.get("x-hub-signature-256");
 
-  if (!verifySignature(raw, sigHeader)) {
-    // DEBUG TEMPORARIO: nao expõe o secret, so o hash calculado e o tamanho
-    // do corpo/secret, pra achar onde diverge da Meta. Remover depois.
-    const crypto = await import("node:crypto");
-    const { env } = await import("@/lib/env");
-    const expected = `sha256=${crypto.createHmac("sha256", env.metaAppSecret).update(raw, "utf8").digest("hex")}`;
-    console.error("[webhook][DEBUG] assinatura invalida", {
-      received: sigHeader,
-      expected,
-      rawLength: raw.length,
-      secretLength: env.metaAppSecret.length,
-      rawPreview: raw.slice(0, 120),
-    });
+  if (!verifySignature(raw, req.headers.get("x-hub-signature-256"))) {
     return new Response("Assinatura invalida", { status: 401 });
   }
 
