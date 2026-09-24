@@ -37,7 +37,37 @@ export function matchesTrigger(trigger: Trigger, rawText: string): boolean {
 
   // "contains": palavra inteira, pra "oi" nao casar dentro de "coisa".
   const words = new Set(text.split(" "));
-  return keywords.some((k) => (k.includes(" ") ? text.includes(k) : words.has(k)));
+  return keywords.some((k) => {
+    if (k.includes(" ")) return text.includes(k);
+    if (words.has(k)) return true;
+    // Erro de digitacao ("promtp", "pronpt" -> "prompt"), com regra estreita
+    // para uma pergunta qualquer nao disparar a automacao.
+    return [...words].some((w) => isTypoOf(w, k));
+  });
+}
+
+/** Palavras-chave mais curtas que isto so casam escritas certas. */
+const TYPO_MIN_LENGTH = 5;
+
+/**
+ * `word` e `keyword` com um erro de digitacao: mesmo numero de letras e so
+ * uma letra trocada ("pronpt") ou duas vizinhas invertidas ("promtp"). Letra
+ * a mais ou a menos nao conta, e numeros nao entram.
+ */
+export function isTypoOf(word: string, keyword: string): boolean {
+  if (keyword.length < TYPO_MIN_LENGTH || word.length !== keyword.length) return false;
+  if (word === keyword || /\d/.test(word) || /\d/.test(keyword)) return false;
+
+  const diff: number[] = [];
+  for (let i = 0; i < word.length; i++) {
+    if (word[i] !== keyword[i]) {
+      diff.push(i);
+      if (diff.length > 2) return false;
+    }
+  }
+  if (diff.length === 1) return true;
+  const [a, b] = diff;
+  return b === a + 1 && word[a] === keyword[b] && word[b] === keyword[a];
 }
 
 /**
