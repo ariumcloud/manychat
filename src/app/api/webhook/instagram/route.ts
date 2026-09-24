@@ -28,13 +28,25 @@ const flowCache = new Map<string, { flow: Flow | null; at: number }>();
 /**
  * Botao fixo nao some depois do toque (o quick reply sumia), entao a pessoa
  * consegue tocar duas vezes seguidas — e cada toque e um postback legitimo,
- * com mid proprio. Sem esta trava o conteudo sai duplicado. Toque repetido no
- * mesmo botao, pelo mesmo contato, dentro da janela, e ignorado.
+ * com mid proprio. Sem trava, o conteudo sai duplicado.
+ *
+ * Mas "tocou de novo" tambem e o caminho normal de quem foi reprovado no
+ * portao: recebe o pedido de seguir outra vez, vai seguir e toca de novo. Esse
+ * toque NAO pode ser engolido — foi assim que um lead travou. Entao o toque so
+ * e ignorado quando o run anterior do mesmo botao ainda esta rodando, ou
+ * terminou entregando o conteudo (e nao o pedido de seguir de novo).
  */
 const TAP_WINDOW_MS = 15_000;
+/** Rajada de toques na mesma instancia, antes de o run do primeiro existir no banco. */
+const TAP_BURST_MS = 2_000;
 const recentTaps = new Map<string, number>();
 
-async function isRepeatedTap(contactId: string, flowId: string, payload: string) {
+async function isRepeatedTap(
+  contactId: string,
+  conversationId: string,
+  flow: Flow,
+  payload: string,
+) {
   const now = Date.now();
   const key = `${contactId}|${payload}`;
   const last = recentTaps.get(key);
@@ -42,19 +54,42 @@ async function isRepeatedTap(contactId: string, flowId: string, payload: string)
   if (recentTaps.size > 1000) {
     for (const [k, at] of recentTaps) if (now - at > TAP_WINDOW_MS) recentTaps.delete(k);
   }
-  // Mesma instancia: pega ate toques quase simultaneos.
-  if (last && now - last < TAP_WINDOW_MS) return true;
+  if (last && now - last < TAP_BURST_MS) return true;
 
-  // Outra instancia: o run do primeiro toque ja esta gravado.
-  const { data } = await db()
+  const supabase = db();
+  const { data: prev } = await supabase
     .from("mc_flow_runs")
-    .select("id")
+    .select("started_at, finished_at, status")
     .eq("contact_id", contactId)
-    .eq("flow_id", flowId)
+    .eq("flow_id", flow.id)
     .eq("source", "dm")
     .gte("started_at", new Date(now - TAP_WINDOW_MS).toISOString())
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!prev) return false;
+  // Toque duplo de verdade: o primeiro ainda esta sendo atendido.
+  if (!prev.finished_at) return true;
+  // Falhou: deixa tentar de novo.
+  if (prev.status !== "done") return false;
+
+  // O no que tem este botao e o "pedido" (ex.: "me segue aqui"). Se o run
+  // anterior mandou ele de novo, a pessoa foi reprovada e este toque vale.
+  const askNodeIds = (flow.nodes ?? [])
+    .filter((n) => n.data.buttons?.some((b) => b.kind === "reply" && b.payload === payload))
+    .map((n) => n.id);
+  if (!askNodeIds.length) return true;
+
+  const { data: reAsked } = await supabase
+    .from("mc_messages")
+    .select("id")
+    .eq("conversation_id", conversationId)
+    .eq("direction", "out")
+    .gte("created_at", prev.started_at)
+    .in("payload->>nodeId", askNodeIds)
     .limit(1);
-  return Boolean(data?.length);
+  return !reAsked?.length;
 }
 
 /**
@@ -283,12 +318,12 @@ async function handleMessaging(event: MessagingEvent) {
   // exemplo, volta direto para o portao.
   if (payload?.startsWith("flow:")) {
     const [flowId, resumeNodeId] = payload.slice(5).split("@");
-    if (await isRepeatedTap(contact.id, flowId, payload)) {
-      console.log(`[webhook] toque repetido em ${payload} ignorado (contato ${contact.id}).`);
-      return;
-    }
     const flow = await loadFlow(flowId);
     if (flow) {
+      if (await isRepeatedTap(contact.id, conversation.id as string, flow, payload)) {
+        console.log(`[webhook] toque repetido em ${payload} ignorado (contato ${contact.id}).`);
+        return;
+      }
       // Fluxos criados antes do "@<no>" mandam so "flow:<id>". Quem toca num
       // botao desses quer que a condicao seja reavaliada — nao rever as
       // mensagens que vieram antes dela. Entao a retomada cai na primeira
