@@ -11,6 +11,8 @@ export async function proxy(req: NextRequest) {
   if (
     pathname.startsWith("/api/webhook") ||
     pathname.startsWith("/api/auth") ||
+    // Cron da Vercel: autentica pelo CRON_SECRET na propria rota.
+    pathname.startsWith("/api/cron") ||
     // Links rastreados sao abertos pelos seus seguidores, nao por voce.
     pathname.startsWith("/r/") ||
     pathname === "/login"
@@ -35,6 +37,6 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|api/webhook|api/auth|r/|login|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|css|js|woff2?|ttf|eot|mp3|wav|json|txt)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|api/webhook|api/auth|api/cron|r/|login|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|css|js|woff2?|ttf|eot|mp3|wav|json|txt)$).*)",
   ],
 };

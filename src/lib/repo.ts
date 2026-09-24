@@ -12,7 +12,16 @@ export type Account = {
   name: string | null;
   profile_picture_url: string | null;
   followers_count: number | null;
+  ig_token_expires_at: string | null;
 };
+
+/**
+ * Colunas que podem sair desta camada. NUNCA "*": mc_accounts guarda o token
+ * do Instagram (ig_access_token), e a conta vai parar em componentes de
+ * cliente (Sidebar) e em respostas de API. O token so e lido em meta/token.ts.
+ */
+const ACCOUNT_COLUMNS =
+  "id, ig_user_id, username, name, profile_picture_url, followers_count, ig_token_expires_at";
 
 let accountCache: { value: Account; at: number } | null = null;
 
@@ -28,7 +37,7 @@ export async function getAccount(force = false): Promise<Account> {
   const supabase = db();
 
   if (!force) {
-    const { data } = await supabase.from("mc_accounts").select("*").limit(1).maybeSingle();
+    const { data } = await supabase.from("mc_accounts").select(ACCOUNT_COLUMNS).limit(1).maybeSingle();
     if (data) {
       accountCache = { value: data as Account, at: Date.now() };
       return data as Account;
@@ -52,7 +61,7 @@ export async function getAccount(force = false): Promise<Account> {
       },
       { onConflict: "ig_user_id" },
     )
-    .select()
+    .select(ACCOUNT_COLUMNS)
     .single();
 
   if (error) throw new Error(`Falha ao salvar a conta: ${error.message}`);
@@ -65,7 +74,7 @@ export async function getAccountCached(): Promise<Account | null> {
   if (accountCache && Date.now() - accountCache.at < 5 * 60_000) {
     return accountCache.value;
   }
-  const { data } = await db().from("mc_accounts").select("*").limit(1).maybeSingle();
+  const { data } = await db().from("mc_accounts").select(ACCOUNT_COLUMNS).limit(1).maybeSingle();
   if (data) {
     accountCache = { value: data as Account, at: Date.now() };
     return data as Account;

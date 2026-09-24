@@ -1,4 +1,5 @@
 import { env } from "../env";
+import { accessToken, forgetAccessToken, saveAccessToken } from "./token";
 
 /**
  * Existem dois "sabores" da API de mensagens do Instagram:
@@ -31,6 +32,7 @@ export class MetaError extends Error {
 async function call<T>(
   path: string,
   init: { method?: "GET" | "POST" | "DELETE"; query?: Record<string, string>; body?: unknown } = {},
+  retried = false,
 ): Promise<T> {
   const url = new URL(`${BASE}/${path.replace(/^\//, "")}`);
   for (const [k, v] of Object.entries(init.query ?? {})) url.searchParams.set(k, v);
@@ -38,7 +40,7 @@ async function call<T>(
   const res = await fetch(url, {
     method: init.method ?? "GET",
     headers: {
-      Authorization: `Bearer ${env.igAccessToken}`,
+      Authorization: `Bearer ${await accessToken()}`,
       ...(init.body ? { "Content-Type": "application/json" } : {}),
     },
     body: init.body ? JSON.stringify(init.body) : undefined,
@@ -56,6 +58,13 @@ async function call<T>(
 
   if (!res.ok) {
     const err = (json as { error?: { message?: string; code?: number } }).error;
+    // 190 = token invalido. Pode ser o cache desta instancia segurando um
+    // token ja trocado pela renovacao: relê e tenta uma vez. Com token
+    // invalido nada foi enviado, entao repetir nao duplica mensagem.
+    if (err?.code === 190 && !retried) {
+      forgetAccessToken();
+      return call<T>(path, init, true);
+    }
     throw new MetaError(err?.message ?? `Graph API respondeu ${res.status}`, res.status, json);
   }
   return json as T;
@@ -349,25 +358,26 @@ export async function inspectToken(): Promise<TokenStatus> {
 }
 
 export type RefreshedToken = {
-  accessToken: string;
   expiresInSeconds: number;
   permissions: string[];
 };
 
 /**
- * Renova o token de longa duracao e, de quebra, e a unica forma de descobrir
- * validade e permissoes de um token de Instagram Login.
+ * Renova o token de longa duracao e grava o novo em mc_accounts, de onde o
+ * app passa a le-lo — nao precisa mais colar nada na Vercel. De quebra e a
+ * unica forma de descobrir validade e permissoes de um token de Instagram
+ * Login.
  *
- * ATENCAO: isto TEM efeito colateral — devolve um token novo. Nunca chame em
- * render de pagina; so a partir de uma acao explicita do usuario.
+ * Roda pelo cron semanal (api/cron/refresh-token) e pelo botao em
+ * Configuracoes. Nunca chame em render de pagina.
  */
 export async function refreshLongLivedToken(): Promise<RefreshedToken> {
   const url =
     `https://graph.instagram.com/refresh_access_token` +
     `?grant_type=ig_refresh_token` +
-    `&access_token=${encodeURIComponent(env.igAccessToken)}`;
+    `&access_token=${encodeURIComponent(await accessToken())}`;
 
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
   const json = (await res.json()) as {
     access_token?: string;
     expires_in?: number;
@@ -375,7 +385,7 @@ export async function refreshLongLivedToken(): Promise<RefreshedToken> {
     error?: { message?: string };
   };
 
-  if (!res.ok || !json.access_token) {
+  if (!res.ok || !json.access_token || !json.expires_in) {
     throw new MetaError(
       json.error?.message ?? `A Graph API respondeu ${res.status}.`,
       res.status,
@@ -383,9 +393,10 @@ export async function refreshLongLivedToken(): Promise<RefreshedToken> {
     );
   }
 
+  await saveAccessToken(json.access_token, json.expires_in);
+
   return {
-    accessToken: json.access_token,
-    expiresInSeconds: json.expires_in ?? 0,
+    expiresInSeconds: json.expires_in,
     permissions: (json.permissions ?? "").split(",").map((p) => p.trim()).filter(Boolean),
   };
 }

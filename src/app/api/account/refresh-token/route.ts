@@ -6,22 +6,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Renova o token de longa duração. Só roda por ação explícita — devolve um
- * token NOVO, que você precisa colar no .env.local e nas variáveis da Vercel.
- *
- * É também a única forma de ver validade e permissões de um token de
- * Instagram Login: o /debug_token do Facebook não funciona com ele.
+ * Renova o token de longa duração agora (o cron semanal faz o mesmo sozinho).
+ * O token novo fica gravado no banco e passa a ser usado na hora — nada para
+ * colar na Vercel, e ele nunca volta para o navegador.
  */
 async function postHandler() {
-  const { accessToken, expiresInSeconds, permissions } = await refreshLongLivedToken();
-
-  const days = Math.round(expiresInSeconds / 86400);
-  const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
+  const { expiresInSeconds, permissions } = await refreshLongLivedToken();
 
   return NextResponse.json({
-    accessToken,
-    expiresAt,
-    days,
+    expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
+    days: Math.round(expiresInSeconds / 86400),
     permissions,
   });
 }

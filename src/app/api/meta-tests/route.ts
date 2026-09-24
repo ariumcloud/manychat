@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withApi } from "@/lib/api";
-import { env } from "@/lib/env";
+import { accessToken } from "@/lib/meta/token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ async function call(path: string, query: Record<string, string> = {}) {
   for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
 
   const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${env.igAccessToken}` },
+    headers: { Authorization: `Bearer ${await accessToken()}` },
     cache: "no-store",
   });
 

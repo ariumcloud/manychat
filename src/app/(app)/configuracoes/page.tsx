@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy, Eye, EyeOff, Loader2, RefreshCw, X } from "lucide-react";
+import { Check, Copy, Loader2, RefreshCw, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { fetchJson } from "@/lib/fetchJson";
 
@@ -13,7 +13,6 @@ type TokenStatus = {
 };
 
 type RefreshResult = {
-  accessToken: string;
   expiresAt: string;
   days: number;
   permissions: string[];
@@ -71,7 +70,6 @@ export default function ConfiguracoesPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshed, setRefreshed] = useState<RefreshResult | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const [showToken, setShowToken] = useState(false);
   // Incrementar isto recarrega o diagnóstico.
   const [version, setVersion] = useState(0);
 
@@ -229,9 +227,9 @@ export default function ConfiguracoesPage() {
 
           <div className="mt-5 border-t border-[var(--border)] pt-4">
             <p className="text-sm leading-relaxed text-[var(--fg-muted)]">
-              Tokens do Instagram expiram em <strong className="text-[var(--fg)]">60 dias</strong>.
-              Renovar devolve um token novo — e é a única forma de ver validade e permissões, já que
-              o <code>debug_token</code> do Facebook não funciona com Instagram Login.
+              Tokens do Instagram expiram em <strong className="text-[var(--fg)]">60 dias</strong>. O
+              app renova sozinho toda segunda-feira; o botão renova agora e mostra validade e
+              permissões (o <code>debug_token</code> do Facebook não funciona com Instagram Login).
             </p>
 
             <button className="btn btn-ghost mt-3" onClick={refreshToken} disabled={refreshing}>
@@ -261,31 +259,9 @@ export default function ConfiguracoesPage() {
                   </div>
                 </div>
 
-                <div>
-                  <span className="label">Token novo</span>
-                  <div className="flex gap-2">
-                    <input
-                      readOnly
-                      type={showToken ? "text" : "password"}
-                      value={refreshed.accessToken}
-                      className="input font-mono text-xs"
-                    />
-                    <button className="btn btn-ghost" onClick={() => setShowToken((v) => !v)}>
-                      {showToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                    <button
-                      className="btn btn-ghost"
-                      onClick={() => void navigator.clipboard.writeText(refreshed.accessToken)}
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </div>
-                  <p className="mt-1.5 text-xs text-[var(--warn)]">
-                    Cole em <code>IG_ACCESS_TOKEN</code> no <code>.env.local</code> e nas
-                    Environment Variables da Vercel, depois redeploy. O token antigo continua
-                    valendo até a data original.
-                  </p>
-                </div>
+                <p className="text-xs text-[var(--fg-dim)]">
+                  O token novo já está salvo e em uso. Não precisa colar nada na Vercel.
+                </p>
               </div>
             )}
           </div>

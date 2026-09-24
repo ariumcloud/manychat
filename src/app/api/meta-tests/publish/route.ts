@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withApi } from "@/lib/api";
-import { env } from "@/lib/env";
+import { accessToken } from "@/lib/meta/token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +36,7 @@ async function postHandler(req: Request) {
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { Authorization: `Bearer ${env.igAccessToken}` },
+    headers: { Authorization: `Bearer ${await accessToken()}` },
     cache: "no-store",
   });
 
