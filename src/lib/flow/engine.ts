@@ -67,6 +67,15 @@ export type RunResult = {
   error?: string;
 };
 
+/**
+ * "We limit how often you can post, comment or do other things…": o Instagram
+ * barrando a acao. Em 24/09/2026 veio so para DMs com link no texto (qualquer
+ * dominio), enquanto mensagens sem link saiam.
+ */
+function isLinkBlock(err: unknown) {
+  return err instanceof MetaError && /we limit how often/i.test(err.message);
+}
+
 /** Texto do no, sorteado entre o principal e as variacoes nao vazias. */
 function pickText(node: FlowNode): string {
   const options = [node.data.text, ...(node.data.textVariants ?? [])].filter(
@@ -462,10 +471,12 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
           break;
 
         case "text": {
-          let text = pickText(node);
+          const body = pickText(node);
+          let text = body;
+          let url: string | null = null;
           // O link vai no corpo da mensagem, rastreado do mesmo jeito.
           if (node.data.link?.url) {
-            const url = await createTrackedLink({
+            url = await createTrackedLink({
               accountId: ctx.accountId,
               url: node.data.link.url,
               contactId,
@@ -475,7 +486,20 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
             });
             text = text ? `${text}\n\n${url}` : url;
           }
-          if (text) await deliver(text, node.id);
+          if (!text) break;
+          try {
+            await deliver(text, node.id);
+          } catch (err) {
+            // Plano B para o bloqueio de links: o link sai dentro de um botao
+            // (button template), o formato que o Instagram oferece para link
+            // em mensagem automatica. Se a private reply falhou, ela nao foi
+            // gasta — o reenvio ainda sai como resposta ao comentario.
+            if (!url || !isLinkBlock(err)) throw err;
+            console.error("[flow] link no texto recusado; tentando dentro de um botao.");
+            await deliver(body.trim() || "Aqui está 👇", node.id, [
+              { type: "web_url", title: "Abrir link", url },
+            ]);
+          }
           break;
         }
 
