@@ -242,7 +242,7 @@ function TriggerCard({
       >
         <span
           className={cn(
-            "absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform",
+            "absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white transition-transform",
             trigger.enabled ? "translate-x-4.5" : "translate-x-0.5",
           )}
         />
