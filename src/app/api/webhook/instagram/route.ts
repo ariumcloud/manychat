@@ -165,22 +165,54 @@ export async function POST(req: Request) {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Quantas pessoas sao atendidas ao mesmo tempo dentro de um POST. O Meta junta
+ * varios eventos num POST so quando o volume sobe; um por vez, a ~7s cada, a
+ * funcao morria aos 60s com os ultimos na fila — ja marcados como vistos, entao
+ * nunca mais tentados. Nao vai mais alto porque o Supabase e compartilhado.
+ */
+const WEBHOOK_CONCURRENCY = 4;
+
 async function processWebhook(body: WebhookBody) {
   const supabase = db();
+
+  // Uma fila por pessoa: os eventos dela seguem em ordem (mensagem e depois o
+  // clique, por exemplo); pessoas diferentes andam em paralelo.
+  const lanes = new Map<string, Array<() => Promise<void>>>();
+  const enqueue = (lane: string, task: () => Promise<void>) => {
+    const list = lanes.get(lane) ?? [];
+    list.push(task);
+    lanes.set(lane, list);
+  };
 
   for (const entry of body.entry ?? []) {
     for (const event of entry.messaging ?? []) {
       const key = event.message?.mid ?? event.postback?.mid ?? `${entry.id}:${event.timestamp}:msg`;
-      if (await alreadySeen(key, body.object, event)) continue;
-      await handleMessaging(event).catch((err) => logFailure(key, err));
+      enqueue(event.sender?.id ?? key, async () => {
+        if (await alreadySeen(key, body.object, event)) return;
+        await handleMessaging(event).catch((err) => logFailure(key, err));
+      });
     }
 
     for (const change of entry.changes ?? []) {
       const key = change.value?.id ?? `${entry.id}:${entry.time}:${change.field}`;
-      if (await alreadySeen(key, body.object, change)) continue;
-      await handleChange(change).catch((err) => logFailure(key, err));
+      enqueue(change.value?.from?.id ?? key, async () => {
+        if (await alreadySeen(key, body.object, change)) return;
+        await handleChange(change).catch((err) => logFailure(key, err));
+      });
     }
   }
+
+  const pending = [...lanes.values()];
+  const worker = async () => {
+    for (let lane = pending.shift(); lane; lane = pending.shift()) {
+      for (const task of lane) {
+        // Uma pessoa com problema nao pode derrubar as outras filas.
+        await task().catch((err) => console.error("[webhook] tarefa falhou:", err));
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(WEBHOOK_CONCURRENCY, pending.length) }, worker));
 
   async function alreadySeen(dedupeKey: string, object: string | undefined, payload: unknown) {
     const now = Date.now();
