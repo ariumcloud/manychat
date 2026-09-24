@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 import { getAccount } from "@/lib/repo";
 import { withApi } from "@/lib/api";
+import { withDefaultReplies } from "@/lib/flow/defaults";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ async function postHandler(req: Request) {
       enabled: body.enabled ?? true,
       priority: body.priority ?? 0,
       public_reply_enabled: body.public_reply_enabled ?? false,
-      public_reply_texts: body.public_reply_texts ?? [],
+      public_reply_texts: withDefaultReplies((body.public_reply_texts as string[] | undefined) ?? []),
       only_first_time: body.only_first_time ?? false,
     })
     .select("*, flows:mc_flows(id, name, status)")

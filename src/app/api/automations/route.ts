@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { DEFAULT_ASK_FOLLOW_VARIANTS, DEFAULT_CONTENT_VARIANTS, withDefaultReplies } from "@/lib/flow/defaults";
 import { db } from "@/lib/supabase";
 import { getAccount } from "@/lib/repo";
 import { withApi } from "@/lib/api";
@@ -40,6 +41,7 @@ function contentNodes(body: Body, x: number, y: number) {
       position: { x, y },
       data: {
         text: body.dm_text!.trim(),
+        textVariants: DEFAULT_CONTENT_VARIANTS,
         ...(url ? { link: { url, label: body.button_label?.trim() || undefined } } : {}),
       },
     },
@@ -122,6 +124,7 @@ async function postHandler(req: Request) {
       position: { x: 640, y: 340 },
       data: {
         text: gateText,
+        textVariants: DEFAULT_ASK_FOLLOW_VARIANTS,
         // payload preenchido depois do insert, quando o id do fluxo existe
         buttons: [
           {
@@ -195,7 +198,7 @@ async function postHandler(req: Request) {
       match_type: body.match_type ?? "contains",
       media_id: body.media_id || null,
       public_reply_enabled: body.public_reply_enabled ?? false,
-      public_reply_texts: (body.public_reply_texts ?? []).filter(Boolean),
+      public_reply_texts: withDefaultReplies(body.public_reply_texts ?? []),
       only_first_time: body.only_first_time ?? false,
     })
     .select("*, flows:mc_flows(id, name, status)")

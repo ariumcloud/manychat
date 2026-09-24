@@ -16,6 +16,7 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetchJson";
+import { DEFAULT_PUBLIC_REPLIES } from "@/lib/flow/defaults";
 
 type Trigger = {
   id: string;
@@ -271,7 +272,7 @@ function CreateDrawer({
   const [buttonLabel, setButtonLabel] = useState("");
   const [buttonUrl, setButtonUrl] = useState("");
   const [publicReply, setPublicReply] = useState(true);
-  const [publicReplyText, setPublicReplyText] = useState("Te mandei no direct! 📩");
+  const [publicReplyText, setPublicReplyText] = useState(DEFAULT_PUBLIC_REPLIES.join("\n"));
   const [onlyFirstTime, setOnlyFirstTime] = useState(false);
   const [followGate, setFollowGate] = useState(false);
   const [gateText, setGateText] = useState(
