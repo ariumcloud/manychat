@@ -37,6 +37,35 @@ const MAX_STEPS = 40;
  */
 const RUN_DEADLINE_MS = 45_000;
 
+/**
+ * Pausa aleatoria antes de cada DM (fora a resposta ao comentario, que ja leva
+ * uns 6s). O suporte da Meta orientou evitar muitas mensagens e ritmo de robo;
+ * em 24/09/2026 a conta tomou bloqueio de links em DM. Ajustavel por
+ * DM_PAUSE_MS="min,max" (em ms).
+ */
+function dmPauseRange(): [number, number] {
+  const [min, max] = (process.env.DM_PAUSE_MS ?? "3000,8000").split(",").map(Number);
+  return Number.isFinite(min) && Number.isFinite(max) && max >= min ? [min, max] : [3000, 8000];
+}
+
+/** Uma pausa nunca empurra o fluxo para perto do teto de tempo. */
+const PAUSE_SAFETY_MS = 12_000;
+
+/** Pediu para seguir de novo ha menos disto: manda o lembrete curto. */
+const ASK_AGAIN_WINDOW_MS = 10 * 60_000;
+/** Lembrete ha menos disto e ainda nao segue: fica quieto. */
+const NUDGE_COOLDOWN_MS = 60_000;
+
+/** Rotulos do botao de link (Instagram: ate 20 caracteres). */
+const LINK_BUTTON_TITLES = ["Abrir link", "Acessar", "Ver conteúdo", "Abrir aqui 👉", "Acessar agora"];
+
+const NUDGE_TEXTS = [
+  "Ainda não apareceu aqui que você me segue 👀 Segue lá e toca de novo no botão acima 👆",
+  "Hmm, ainda não achei seu follow 🤔 Me segue e toca no botão de novo 👆",
+  "Quase! Ainda não tá aparecendo que você me segue. Segue e tenta de novo no botão 👆",
+  "Opa, seu follow ainda não caiu aqui 👀 às vezes demora uns segundinhos, tenta de novo 👆",
+];
+
 export type RunContext = {
   accountId: string;
   contactId: string;
@@ -69,8 +98,8 @@ export type RunResult = {
 
 /**
  * "We limit how often you can post, comment or do other things…": o Instagram
- * barrando a acao. Em 24/09/2026 veio so para DMs com link no texto (qualquer
- * dominio), enquanto mensagens sem link saiam.
+ * barrando a acao. Em 24/09/2026 veio para DMs com link no texto (qualquer
+ * dominio); com o link dentro de botao, passou.
  */
 function isLinkBlock(err: unknown) {
   return err instanceof MetaError && /we limit how often/i.test(err.message);
@@ -222,6 +251,13 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
    * private reply ainda nao saiu; `toUser` depois. `text` e o que fica gravado
    * no inbox.
    */
+  const humanPause = async () => {
+    const [min, max] = dmPauseRange();
+    const remaining = RUN_DEADLINE_MS - (Date.now() - startedAt) - PAUSE_SAFETY_MS;
+    const ms = Math.min(min + Math.random() * (max - min), remaining);
+    if (ms > 0) await new Promise((r) => setTimeout(r, ms));
+  };
+
   const deliverMessage = async (msg: {
     text: string;
     type: string;
@@ -281,6 +317,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
 
     if (!igsid) throw new Error("Sem IGSID para enviar a mensagem.");
     if (!(await canSendFreeform())) throw new Error(OUT_OF_WINDOW);
+    await humanPause();
     const res = await msg.toUser(igsid);
     const convId = await ensureConversation();
     await recordMessage({
@@ -440,6 +477,30 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     });
   };
 
+  /**
+   * "ask": manda o pedido completo; "nudge": ja pediu ha pouco, manda o
+   * lembrete; "silent": ja lembrou ha menos de 1 minuto.
+   */
+  const askAgainOrNudge = async (node: FlowNode): Promise<"ask" | "nudge" | "silent"> => {
+    const convId = await ensureConversation();
+    const { data } = await supabase
+      .from("mc_messages")
+      .select("created_at, payload")
+      .eq("conversation_id", convId)
+      .eq("direction", "out")
+      .eq("payload->>nodeId", node.id)
+      .gte("created_at", new Date(Date.now() - ASK_AGAIN_WINDOW_MS).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(20);
+    const recent = (data ?? []) as Array<{ created_at: string; payload: { nudge?: boolean } | null }>;
+    if (!recent.length) return "ask";
+    const lastNudgeAt = Math.max(
+      0,
+      ...recent.filter((m) => m.payload?.nudge).map((m) => new Date(m.created_at).getTime()),
+    );
+    return Date.now() - lastNudgeAt < NUDGE_COOLDOWN_MS ? "silent" : "nudge";
+  };
+
   const applyTag = async (name: string) => {
     const { data: tag } = await supabase
       .from("mc_tags")
@@ -474,7 +535,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
           const body = pickText(node);
           let text = body;
           let url: string | null = null;
-          // O link vai no corpo da mensagem, rastreado do mesmo jeito.
+          // Rastreado so com dominio proprio (ver trackingBaseUrl).
           if (node.data.link?.url) {
             url = await createTrackedLink({
               accountId: ctx.accountId,
@@ -487,18 +548,23 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
             text = text ? `${text}\n\n${url}` : url;
           }
           if (!text) break;
-          try {
+          if (!url) {
             await deliver(text, node.id);
+            break;
+          }
+          // Link sempre dentro de botao (button template): e o formato que o
+          // Instagram oferece para link em mensagem automatica. Em 24/09/2026
+          // ele passou a recusar DM com link no texto, qualquer dominio, e o
+          // botao seguiu passando. O rotulo e sorteado como o texto.
+          const title = LINK_BUTTON_TITLES[Math.floor(Math.random() * LINK_BUTTON_TITLES.length)];
+          try {
+            await deliver(body.trim() || "Aqui está 👇", node.id, [{ type: "web_url", title, url }]);
           } catch (err) {
-            // Plano B para o bloqueio de links: o link sai dentro de um botao
-            // (button template), o formato que o Instagram oferece para link
-            // em mensagem automatica. Se a private reply falhou, ela nao foi
-            // gasta — o reenvio ainda sai como resposta ao comentario.
-            if (!url || !isLinkBlock(err)) throw err;
-            console.error("[flow] link no texto recusado; tentando dentro de um botao.");
-            await deliver(body.trim() || "Aqui está 👇", node.id, [
-              { type: "web_url", title: "Abrir link", url },
-            ]);
+            // Card recusado por outro motivo (link invalido, por exemplo): o
+            // link ainda sai no texto. O bloqueio de links nao tem essa saida.
+            if (!(err instanceof MetaError) || isLinkBlock(err)) throw err;
+            console.error("[flow] card com link recusado, caindo para texto:", err.message);
+            await deliver(text, node.id);
           }
           break;
         }
@@ -514,6 +580,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
           if (!igsid) throw new Error("Sem IGSID para enviar a imagem.");
           if (!(await canSendFreeform())) throw new Error(OUT_OF_WINDOW);
 
+          await humanPause();
           const res = await sendImage(igsid, node.data.url);
           const convId = await ensureConversation();
           await recordMessage({
@@ -553,6 +620,26 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
           );
           // O card exige um corpo; um espaco basta quando o no nao tem texto.
           const text = pickText(node).trim() || " ";
+
+          // Pedido que espera toque ("JA TE SEGUI") voltando por um toque:
+          // a pessoa foi reprovada no portao. O botao do pedido anterior
+          // continua valendo, entao nao precisa de outro card igual — sai um
+          // lembrete curto, e nada se o ultimo lembrete e de agora ha pouco.
+          if (ctx.startNodeId && !commentToUse && buttons.some((b) => b.type === "postback")) {
+            const nudge = await askAgainOrNudge(node);
+            if (nudge === "silent") break;
+            if (nudge === "nudge") {
+              const t = NUDGE_TEXTS[Math.floor(Math.random() * NUDGE_TEXTS.length)];
+              await deliverMessage({
+                text: t,
+                type: "text",
+                payload: { nodeId: node.id, nudge: true },
+                toComment: () => Promise.reject(new Error("Lembrete nao sai como resposta a comentario.")),
+                toUser: (id) => sendText(id, t),
+              });
+              break;
+            }
+          }
 
           if (!buttons.length) {
             if (text.trim()) await deliver(text, node.id);

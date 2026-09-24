@@ -34,7 +34,7 @@ const flowCache = new Map<string, { flow: Flow | null; at: number }>();
  * portao: recebe o pedido de seguir outra vez, vai seguir e toca de novo. Esse
  * toque NAO pode ser engolido — foi assim que um lead travou. Entao o toque so
  * e ignorado quando o run anterior do mesmo botao ainda esta rodando, ou
- * terminou entregando o conteudo (e nao o pedido de seguir de novo).
+ * terminou entregando o conteudo (e nao o pedido/lembrete, nem nada).
  */
 const TAP_WINDOW_MS = 15_000;
 /** Rajada de toques na mesma instancia, antes de o run do primeiro existir no banco. */
@@ -74,22 +74,25 @@ async function isRepeatedTap(
   // Falhou: deixa tentar de novo.
   if (prev.status !== "done") return false;
 
-  // O no que tem este botao e o "pedido" (ex.: "me segue aqui"). Se o run
-  // anterior mandou ele de novo, a pessoa foi reprovada e este toque vale.
-  const askNodeIds = (flow.nodes ?? [])
-    .filter((n) => n.data.buttons?.some((b) => b.kind === "reply" && b.payload === payload))
-    .map((n) => n.id);
-  if (!askNodeIds.length) return true;
+  // O no que tem este botao e o "pedido" (ex.: "me segue aqui"). So ignora
+  // se o run anterior entregou conteudo: se mandou o pedido/lembrete de novo,
+  // ou nao mandou nada (lembrete silenciado), este toque vale.
+  const askNodeIds = new Set(
+    (flow.nodes ?? [])
+      .filter((n) => n.data.buttons?.some((b) => b.kind === "reply" && b.payload === payload))
+      .map((n) => n.id),
+  );
+  if (!askNodeIds.size) return true;
 
-  const { data: reAsked } = await supabase
+  const { data: sent } = await supabase
     .from("mc_messages")
-    .select("id")
+    .select("payload")
     .eq("conversation_id", conversationId)
     .eq("direction", "out")
     .gte("created_at", prev.started_at)
-    .in("payload->>nodeId", askNodeIds)
-    .limit(1);
-  return !reAsked?.length;
+    .limit(20);
+  const nodes = (sent ?? []).map((m) => (m.payload as { nodeId?: string } | null)?.nodeId);
+  return nodes.some((id) => id && !askNodeIds.has(id));
 }
 
 /**
