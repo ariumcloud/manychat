@@ -26,6 +26,38 @@ const triggersCache = new Map<string, { triggers: Trigger[]; at: number }>();
 const flowCache = new Map<string, { flow: Flow | null; at: number }>();
 
 /**
+ * Botao fixo nao some depois do toque (o quick reply sumia), entao a pessoa
+ * consegue tocar duas vezes seguidas — e cada toque e um postback legitimo,
+ * com mid proprio. Sem esta trava o conteudo sai duplicado. Toque repetido no
+ * mesmo botao, pelo mesmo contato, dentro da janela, e ignorado.
+ */
+const TAP_WINDOW_MS = 15_000;
+const recentTaps = new Map<string, number>();
+
+async function isRepeatedTap(contactId: string, flowId: string, payload: string) {
+  const now = Date.now();
+  const key = `${contactId}|${payload}`;
+  const last = recentTaps.get(key);
+  recentTaps.set(key, now);
+  if (recentTaps.size > 1000) {
+    for (const [k, at] of recentTaps) if (now - at > TAP_WINDOW_MS) recentTaps.delete(k);
+  }
+  // Mesma instancia: pega ate toques quase simultaneos.
+  if (last && now - last < TAP_WINDOW_MS) return true;
+
+  // Outra instancia: o run do primeiro toque ja esta gravado.
+  const { data } = await db()
+    .from("mc_flow_runs")
+    .select("id")
+    .eq("contact_id", contactId)
+    .eq("flow_id", flowId)
+    .eq("source", "dm")
+    .gte("started_at", new Date(now - TAP_WINDOW_MS).toISOString())
+    .limit(1);
+  return Boolean(data?.length);
+}
+
+/**
  * Sem estas variaveis o webhook nao tem como funcionar. Melhor responder um erro
  * legivel do que um 500 mudo quando o Meta bater aqui.
  */
@@ -251,6 +283,10 @@ async function handleMessaging(event: MessagingEvent) {
   // exemplo, volta direto para o portao.
   if (payload?.startsWith("flow:")) {
     const [flowId, resumeNodeId] = payload.slice(5).split("@");
+    if (await isRepeatedTap(contact.id, flowId, payload)) {
+      console.log(`[webhook] toque repetido em ${payload} ignorado (contato ${contact.id}).`);
+      return;
+    }
     const flow = await loadFlow(flowId);
     if (flow) {
       // Fluxos criados antes do "@<no>" mandam so "flow:<id>". Quem toca num
