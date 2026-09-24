@@ -16,7 +16,7 @@ import {
   type GenericElement,
   type TemplateButton,
 } from "../meta/client";
-import { appBaseUrl, createTrackedLink } from "../links";
+import { createTrackedLink, trackingBaseUrl } from "../links";
 import { CATALOG_LIMITS, cardHandle, type CatalogItem } from "../catalog";
 import type { Flow, FlowEdge, FlowNode } from "./types";
 
@@ -388,7 +388,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
               contactId,
               flowId: flow.id,
               triggerId: ctx.triggerId ?? null,
-              baseUrl: appBaseUrl(),
+              baseUrl: trackingBaseUrl(),
             }),
           };
         } else if (item.button_action === "flow") {
@@ -463,7 +463,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
               contactId,
               flowId: flow.id,
               triggerId: ctx.triggerId ?? null,
-              baseUrl: appBaseUrl(),
+              baseUrl: trackingBaseUrl(),
             });
             text = text ? `${text}\n\n${url}` : url;
           }
@@ -513,7 +513,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
                       contactId,
                       flowId: flow.id,
                       triggerId: ctx.triggerId ?? null,
-                      baseUrl: appBaseUrl(),
+                      baseUrl: trackingBaseUrl(),
                     }),
                   } as const)
                 : ({ type: "postback", title: b.label, payload: b.payload } as const),

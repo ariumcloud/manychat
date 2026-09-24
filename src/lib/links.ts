@@ -20,10 +20,7 @@ export async function createTrackedLink(input: {
   // Sem domínio público não dá para rastrear: um link "localhost" dentro da DM
   // é pior do que não medir — o Instagram recusa o botão e a pessoa fica sem o
   // link. Manda o destino original e segue o jogo.
-  if (!input.baseUrl) {
-    console.warn("[links] APP_BASE_URL não configurada; enviando o link sem rastreio.");
-    return input.url;
-  }
+  if (!input.baseUrl) return input.url;
 
   const token = crypto.randomBytes(9).toString("base64url");
 
@@ -47,16 +44,27 @@ export async function createTrackedLink(input: {
 }
 
 /**
- * URL pública da própria aplicação, para montar o link rastreado.
- * `null` quando não dá para saber — quem chama manda o link original.
+ * Domínio dos links rastreados, ou `null` para mandar o link original.
+ *
+ * Desligado por padrão. Em 24/09/2026 o Instagram passou a recusar toda DM
+ * com link `manychat-murex.vercel.app/r/…` ("We limit how often you can
+ * post…"), inclusive enviada à mão, enquanto as mesmas mensagens sem link
+ * saíam. `*.vercel.app` é domínio compartilhado e de reputação ruim; 125 links
+ * dele em DM num dia bastaram. Por isso o rastreio só liga com um domínio
+ * próprio em LINK_TRACKING_BASE_URL — e nunca num vercel.app.
  */
-export function appBaseUrl(): string | null {
-  const explicit = process.env.APP_BASE_URL;
-  if (explicit) return explicit.replace(/\/$/, "");
-
-  // A Vercel expõe o domínio de produção aqui.
-  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
-  if (vercel) return `https://${vercel}`;
-
-  return null;
+export function trackingBaseUrl(): string | null {
+  const raw = process.env.LINK_TRACKING_BASE_URL?.trim();
+  if (!raw) return null;
+  const base = raw.replace(/\/$/, "");
+  try {
+    if (new URL(base).hostname.endsWith(".vercel.app")) {
+      console.warn("[links] LINK_TRACKING_BASE_URL em vercel.app ignorada; mandando o link original.");
+      return null;
+    }
+  } catch {
+    console.warn("[links] LINK_TRACKING_BASE_URL inválida; mandando o link original.");
+    return null;
+  }
+  return base;
 }

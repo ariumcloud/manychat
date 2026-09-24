@@ -24,7 +24,7 @@ Já existe um `.env.local` na raiz, copiado do `.env.example`. Preencha:
 | `IG_USER_ID` | opcional — o app descobre sozinho |
 | `DASHBOARD_PASSWORD` | senha pra entrar no painel |
 | `AUTH_SECRET` | string longa e aleatória, pra assinar o cookie de sessão |
-| `APP_BASE_URL` | opcional fora da Vercel — o domínio público deste app (`https://…`), usado nos links rastreados dos botões. Sem ele o botão vai com o link original, sem medição |
+| `LINK_TRACKING_BASE_URL` | opcional — domínio **próprio** (`https://link.seudominio.com`) apontando para este app, para medir cliques via `/r/<token>`. Vazio = a DM leva o link original. `*.vercel.app` é ignorado: o Instagram passou a recusar DMs com esse domínio |
 
 > **Nunca** cole o token em chat, issue, print ou commit. O `.gitignore` já
 > bloqueia `.env*`. Se um token vazar, revogue no painel do Meta e gere outro.
