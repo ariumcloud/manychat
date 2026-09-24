@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 import { withApi } from "@/lib/api";
-import { upgradeLegacyNodes } from "@/lib/flow/legacy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +12,7 @@ async function getHandler(_req: Request, { params }: Params) {
   const { data, error } = await db().from("mc_flows").select("*").eq("id", id).maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Fluxo não encontrado" }, { status: 404 });
-  return NextResponse.json({ flow: upgradeLegacyNodes(data) });
+  return NextResponse.json({ flow: data });
 }
 
 async function patchHandler(req: Request, { params }: Params) {

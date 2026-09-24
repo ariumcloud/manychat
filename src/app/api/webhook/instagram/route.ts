@@ -7,7 +7,6 @@ import { getAccount, getOrCreateConversation, recordMessage, upsertContact } fro
 import { pickTrigger } from "@/lib/flow/matcher";
 import { runFlow } from "@/lib/flow/engine";
 import type { Flow, Trigger, TriggerKind } from "@/lib/flow/types";
-import { upgradeLegacyNodes } from "@/lib/flow/legacy";
 import { replyToComment } from "@/lib/meta/client";
 
 export const runtime = "nodejs";
@@ -171,7 +170,7 @@ async function loadFlow(flowId: string): Promise<Flow | null> {
   }
 
   const { data } = await db().from("mc_flows").select("*").eq("id", flowId).maybeSingle();
-  const flow = data && data.status === "live" ? upgradeLegacyNodes(data as Flow) : null;
+  const flow = data && data.status === "live" ? (data as Flow) : null;
   flowCache.set(flowId, { flow, at: Date.now() });
   return flow;
 }
