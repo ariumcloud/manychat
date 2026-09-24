@@ -211,6 +211,7 @@ export default function CatalogPage() {
                 <button
                   type="button"
                   className="btn btn-ghost shrink-0"
+                  aria-label="Enviar imagem"
                   disabled={uploading}
                   onClick={() => fileRef.current?.click()}
                 >

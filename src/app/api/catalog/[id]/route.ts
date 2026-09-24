@@ -43,7 +43,9 @@ async function deleteHandler(_req: Request, { params }: Params) {
     .from("mc_flows")
     .select("name")
     .eq("account_id", account.id)
-    .contains("nodes", [{ type: "carousel", data: { items: [id] } }]);
+    // String JSON de proposito: um array passado direto vira array do Postgres
+    // ("{...}") e o jsonb @> quebra.
+    .filter("nodes", "cs", JSON.stringify([{ type: "carousel", data: { items: [id] } }]));
 
   if (usageError) return NextResponse.json({ error: usageError.message }, { status: 500 });
   if (usedIn?.length) {
