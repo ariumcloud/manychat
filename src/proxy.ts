@@ -13,6 +13,8 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/api/auth") ||
     // Cron da Vercel: autentica pelo CRON_SECRET na propria rota.
     pathname.startsWith("/api/cron") ||
+    // Conector MCP: autentica pela chave na propria URL (api/mcp/<chave>).
+    pathname.startsWith("/api/mcp") ||
     // Links rastreados sao abertos pelos seus seguidores, nao por voce.
     pathname.startsWith("/r/") ||
     pathname === "/login"
@@ -37,6 +39,6 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|api/webhook|api/auth|api/cron|r/|login|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|css|js|woff2?|ttf|eot|mp3|wav|json|txt)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|api/webhook|api/auth|api/cron|api/mcp|r/|login|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|css|js|woff2?|ttf|eot|mp3|wav|json|txt)$).*)",
   ],
 };

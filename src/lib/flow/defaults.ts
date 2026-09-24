@@ -16,6 +16,10 @@ export const DEFAULT_PUBLIC_REPLIES = [
   "Te chamei no direct! ✌️",
 ];
 
+/** Texto principal do pedido para seguir (o mesmo que o formulario sugere). */
+export const DEFAULT_ASK_FOLLOW_TEXT =
+  "Opa! Antes de te mandar, me segue aqui 👉 é rapidinho.\n\nDepois toca no botão abaixo que eu te envio na hora 👇";
+
 export const DEFAULT_ASK_FOLLOW_VARIANTS = [
   "Opa! Pra eu te mandar, me segue aqui rapidinho 👉\n\nDepois é só tocar no botão aqui embaixo que chega na hora 👇",
   "Fala! Antes de liberar, me dá um follow aqui 👉 leva 2 segundos.\n\nAí toca no botão abaixo que eu te mando na hora 👇",
