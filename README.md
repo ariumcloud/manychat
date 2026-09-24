@@ -134,8 +134,8 @@ escreveu. Só funciona **uma vez por comentário** e dentro de **7 dias**.
   bloco guarda só os ids, então o mesmo item serve em vários fluxos. Botão de
   link sai rastreado (`/r/<token>`); botão "continua o fluxo" vira postback
   `flow:<fluxo>@<nó>`, com o nó vindo da saída própria do card no bloco.
-  Via private reply (comentário) o generic template **ainda não foi testado** —
-  a doc da Meta só o documenta com `recipient.id`.
+  **Só por DM**: não sai como resposta a comentário (o motor recusa). Em fluxo
+  de comentário, vem depois de um botão, quando a conversa já está aberta.
 - **Delay em serverless**: máximo 8s por nó — a função morre junto com a
   resposta. Delays longos precisariam de fila (QStash, Inngest, cron).
 

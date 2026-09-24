@@ -173,6 +173,10 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     return windowOpen;
   };
 
+  const CAROUSEL_IN_COMMENT =
+    "Carrossel nao sai como resposta a comentario. Coloque-o depois de um botao " +
+    "(ex.: o \"JA TE SEGUI\"), quando a conversa ja estiver aberta.";
+
   const OUT_OF_WINDOW =
     "Fora da janela de 24h do Instagram: depois da primeira resposta ao comentario, " +
     "so da para mandar de novo se a pessoa te responder. Deixe o fluxo do comentario " +
@@ -351,8 +355,12 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
    * botao "flow" vira postback "flow:<fluxo>@<no>", com o no de destino vindo
    * da saida do card — o clique volta pelo webhook como qualquer outro botao.
    * Um card "flow" sem saida ligada vai sem botao.
+   *
+   * So por DM: carrossel nao sai como resposta a comentario. Num fluxo de
+   * comentario ele vem depois de um botao, quando a pessoa ja respondeu.
    */
   const sendCarousel = async (node: FlowNode) => {
+    if (commentToUse) throw new Error(CAROUSEL_IN_COMMENT);
     const ids = (node.data.items ?? []).slice(0, CATALOG_LIMITS.cards);
     if (!ids.length) return;
 
@@ -410,8 +418,8 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
       text: `🛍️ ${items.map((i) => i.title).join(" · ")}`,
       type: "template",
       payload: { nodeId: node.id, elements },
-      toComment: (commentId) => sendGeneric({ comment_id: commentId }, elements),
-      toUser: (id) => sendGeneric({ id }, elements),
+      toComment: () => Promise.reject(new Error(CAROUSEL_IN_COMMENT)),
+      toUser: (id) => sendGeneric(id, elements),
     });
   };
 

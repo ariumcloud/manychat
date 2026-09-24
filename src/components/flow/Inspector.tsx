@@ -417,8 +417,8 @@ function CarouselFields({
         ao passo que o clique deve abrir. A saída de baixo segue logo após o envio.
       </p>
       <p className="text-xs text-[var(--warn)]">
-        Em fluxo de comentário, o carrossel ainda não foi testado como primeira mensagem (resposta
-        privada).
+        Não funciona como resposta a comentário. Em fluxo de comentário, coloque o carrossel depois
+        de um botão (ex.: &ldquo;JÁ TE SEGUI&rdquo;), quando a conversa já estiver aberta.
       </p>
     </div>
   );

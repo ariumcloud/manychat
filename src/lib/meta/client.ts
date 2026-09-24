@@ -125,7 +125,7 @@ export type TemplateButton =
 
 type SendResult = { recipient_id?: string; message_id?: string };
 
-export type Recipient = { id: string } | { comment_id: string };
+type Recipient = { id: string } | { comment_id: string };
 
 async function send(recipient: Recipient, message: unknown): Promise<SendResult> {
   return call<SendResult>(`${selfId()}/messages`, {
@@ -184,17 +184,11 @@ export type GenericElement = {
 };
 
 /**
- * Carrossel de cards. Vale tanto para DM (`{ id }`) quanto para private reply
- * (`{ comment_id }`): num comentario ele precisa ir DENTRO da private reply,
- * que e a unica mensagem permitida ate a pessoa responder.
- *
- * ATENCAO: a doc da Meta so documenta generic template com recipient.id. O
- * button template via comment_id funciona em producao, mas o generic ainda
- * nao foi testado nesse caminho — se a Meta recusar, o erro sobe e aparece
- * no log do run.
+ * Carrossel de cards, so por DM. Numa resposta a comentario ele nao e usado:
+ * a doc da Meta so documenta generic template com recipient.id.
  */
-export function sendGeneric(recipient: Recipient, elements: GenericElement[]) {
-  return send(recipient, {
+export function sendGeneric(igsid: string, elements: GenericElement[]) {
+  return send({ id: igsid }, {
     attachment: {
       type: "template",
       payload: {
