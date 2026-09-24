@@ -22,7 +22,6 @@ import {
   Clock,
   GitBranch,
   Image as ImageIcon,
-  ListChecks,
   Loader2,
   MessageSquare,
   MousePointerClick,
@@ -38,7 +37,6 @@ import { fetchJson } from "@/lib/fetchJson";
 const PALETTE: Array<{ kind: NodeKind; label: string; icon: typeof MessageSquare; data: FlowNodeData }> = [
   { kind: "text", label: "Mensagem", icon: MessageSquare, data: { text: "Escreva aqui…" } },
   { kind: "buttons", label: "Botões", icon: MousePointerClick, data: { text: "Escolha:", buttons: [] } },
-  { kind: "quickReplies", label: "Respostas rápidas", icon: ListChecks, data: { text: "Escolha:", options: [] } },
   { kind: "image", label: "Imagem", icon: ImageIcon, data: { url: "" } },
   { kind: "delay", label: "Espera", icon: Clock, data: { seconds: 2 } },
   { kind: "tag", label: "Aplicar tag", icon: Tag, data: { tagName: "" } },

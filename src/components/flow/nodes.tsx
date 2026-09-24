@@ -5,7 +5,6 @@ import {
   Clock,
   GitBranch,
   Image as ImageIcon,
-  ListChecks,
   MessageSquare,
   MousePointerClick,
   Tag,
@@ -149,26 +148,6 @@ export function ButtonsNode({ data, selected }: Props) {
   );
 }
 
-export function QuickRepliesNode({ data, selected }: Props) {
-  return (
-    <Standard
-      selected={!!selected}
-      icon={ListChecks}
-      title="Respostas rápidas"
-      empty="sem opções"
-    >
-      {data.text && <p className="mb-2 whitespace-pre-wrap">{data.text}</p>}
-      <div className="flex flex-wrap gap-1">
-        {(data.options ?? []).map((o, i) => (
-          <span key={i} className="chip">
-            {o.label}
-          </span>
-        ))}
-      </div>
-    </Standard>
-  );
-}
-
 export function DelayNode({ data, selected }: Props) {
   return (
     <Standard selected={!!selected} icon={Clock} title="Espera" tone="amber" empty="—">
@@ -220,7 +199,6 @@ export const nodeTypes = {
   text: TextNode,
   image: ImageNode,
   buttons: ButtonsNode,
-  quickReplies: QuickRepliesNode,
   delay: DelayNode,
   tag: TagNode,
   condition: ConditionNode,

@@ -125,8 +125,9 @@ escreveu. Só funciona **uma vez por comentário** e dentro de **7 dias**.
 - **Janela de 24h**: depois de 24h sem mensagem da pessoa, não dá pra responder.
   O inbox mostra o status da janela e bloqueia o campo quando fecha.
 - **Private reply**: uma por comentário, até 7 dias depois.
-- **Quick replies**: máximo 13, título de até 20 caracteres.
-- **Botões**: máximo 3 por card.
+- **Botões**: sempre fixos na mensagem (button template), máximo 3 por card,
+  título de até 20 caracteres. Numa resposta a comentário o card vai dentro da
+  própria private reply — é a única mensagem permitida até a pessoa responder.
 - **Delay em serverless**: máximo 8s por nó — a função morre junto com a
   resposta. Delays longos precisariam de fila (QStash, Inngest, cron).
 

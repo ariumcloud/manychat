@@ -3,7 +3,6 @@ export type NodeKind =
   | "text"
   | "image"
   | "buttons"
-  | "quickReplies"
   | "delay"
   | "tag"
   | "condition";
@@ -14,7 +13,7 @@ export type FlowButton =
 
 export type FlowNodeData = {
   label?: string;
-  /** text, buttons, quickReplies */
+  /** text, buttons */
   text?: string;
   /** image */
   url?: string;
@@ -27,8 +26,6 @@ export type FlowNodeData = {
    * link viaja dentro do texto em vez de num botão, que exigiria uma segunda.
    */
   link?: { url: string; label?: string };
-  /** quickReplies */
-  options?: Array<{ label: string; payload: string }>;
   /** delay (segundos) */
   seconds?: number;
   /** tag */

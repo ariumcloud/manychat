@@ -22,7 +22,6 @@ export function Inspector({ node, onChange, onDelete }: Props) {
 
   const d = node.data;
   const buttons = d.buttons ?? [];
-  const options = d.options ?? [];
 
   function setButton(i: number, patch: Partial<FlowButton>) {
     const next = buttons.map((b, idx) => (idx === i ? ({ ...b, ...patch } as FlowButton) : b));
@@ -38,7 +37,6 @@ export function Inspector({ node, onChange, onDelete }: Props) {
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
         {(node.type === "text" ||
           node.type === "buttons" ||
-          node.type === "quickReplies" ||
           node.type === "image") && (
           <div>
             <label className="label" htmlFor="i-text">
@@ -190,42 +188,6 @@ export function Inspector({ node, onChange, onDelete }: Props) {
                   <Plus size={14} /> Adicionar botão
                 </button>
               )}
-            </div>
-          </div>
-        )}
-
-        {node.type === "quickReplies" && (
-          <div>
-            <span className="label">Opções</span>
-            <div className="space-y-2">
-              {options.map((o, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    className="input"
-                    value={o.label}
-                    placeholder="Opção"
-                    onChange={(e) =>
-                      onChange({
-                        options: options.map((x, idx) =>
-                          idx === i ? { ...x, label: e.target.value, payload: e.target.value } : x,
-                        ),
-                      })
-                    }
-                  />
-                  <button
-                    className="btn btn-danger px-2"
-                    onClick={() => onChange({ options: options.filter((_, idx) => idx !== i) })}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-              <button
-                className="btn btn-ghost w-full"
-                onClick={() => onChange({ options: [...options, { label: "", payload: "" }] })}
-              >
-                <Plus size={14} /> Adicionar opção
-              </button>
             </div>
           </div>
         )}

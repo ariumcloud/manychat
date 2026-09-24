@@ -12,7 +12,7 @@ import {
   sendImage,
   sendPrivateReply,
   sendText,
-  type QuickReply,
+  type TemplateButton,
 } from "../meta/client";
 import { appBaseUrl, createTrackedLink } from "../links";
 import type { Flow, FlowEdge, FlowNode } from "./types";
@@ -84,11 +84,6 @@ function nextNode(flow: Flow, from: FlowNode, handle?: string): FlowNode | null 
     : edges.find((e) => e.source === from.id);
   if (!edge) return null;
   return (flow.nodes ?? []).find((n) => n.id === edge.target) ?? null;
-}
-
-function toQuickReplies(options?: Array<{ label: string; payload: string }>): QuickReply[] | undefined {
-  if (!options?.length) return undefined;
-  return options.map((o) => ({ title: o.label, payload: o.payload }));
 }
 
 /** Executa um fluxo do inicio ao fim, gravando cada mensagem enviada. */
@@ -182,14 +177,21 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
    * A primeira mensagem de um fluxo vindo de comentario sai como private reply
    * (recipient.comment_id). A resposta traz o recipient_id, que e o IGSID da
    * pessoa - e a partir dai as proximas mensagens vao normalmente.
+   *
+   * Com botoes, a mensagem sai como card de botao fixo — inclusive na private
+   * reply, que e a unica mensagem permitida antes de a pessoa responder: texto
+   * e botao precisam ir juntos.
    */
   const deliver = async (
     text: string,
-    quickReplies?: QuickReply[],
     nodeId?: string,
+    buttons?: TemplateButton[],
   ): Promise<void> => {
+    const type = buttons?.length ? "template" : "text";
+    const payload = buttons?.length ? { nodeId, buttons } : { nodeId };
+
     if (commentToUse) {
-      const res = await sendPrivateReply(commentToUse, text, quickReplies);
+      const res = await sendPrivateReply(commentToUse, text, buttons);
       commentToUse = null;
 
       // O id que vem no webhook de comentario nem sempre e o mesmo que a API de
@@ -227,27 +229,31 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
         conversationId: convId,
         direction: "out",
         sender: "bot",
+        type,
         text,
         mid: res.message_id ?? null,
         flowId: flow.id,
-        payload: { nodeId, via: "private_reply" },
+        payload: { ...payload, via: "private_reply" },
       });
       return;
     }
 
     if (!igsid) throw new Error("Sem IGSID para enviar a mensagem.");
     if (!(await canSendFreeform())) throw new Error(OUT_OF_WINDOW);
-    const res = await sendText(igsid, text, quickReplies);
+    const res = buttons?.length
+      ? await sendButtons(igsid, text, buttons)
+      : await sendText(igsid, text);
     const convId = await ensureConversation();
     await recordMessage({
       accountId: ctx.accountId,
       conversationId: convId,
       direction: "out",
       sender: "bot",
+      type,
       text,
       mid: res.message_id ?? null,
       flowId: flow.id,
-      payload: { nodeId },
+      payload,
     });
   };
 
@@ -366,21 +372,15 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
             });
             text = text ? `${text}\n\n${url}` : url;
           }
-          if (text) await deliver(text, undefined, node.id);
+          if (text) await deliver(text, node.id);
           break;
         }
-
-        case "quickReplies":
-          if (node.data.text) {
-            await deliver(node.data.text, toQuickReplies(node.data.options), node.id);
-          }
-          break;
 
         case "image": {
           if (!node.data.url) break;
           if (commentToUse) {
             // Private reply so aceita texto; manda a legenda primeiro pra abrir a conversa.
-            await deliver(node.data.text || "  ", undefined, node.id);
+            await deliver(node.data.text || "  ", node.id);
           }
           // Sem IGSID nao da para anexar nada. Falhar aqui e melhor do que
           // marcar o run como concluido tendo entregue so o texto.
@@ -406,7 +406,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
         case "buttons": {
           // Cada link vira um /r/<token> próprio deste envio — é assim que o
           // clique volta pra gente.
-          const buttons = await Promise.all(
+          const buttons: TemplateButton[] = await Promise.all(
             (node.data.buttons ?? []).map(async (b) =>
               b.kind === "url"
                 ? ({
@@ -424,57 +424,25 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
                 : ({ type: "postback", title: b.label, payload: b.payload } as const),
             ),
           );
-          let textAlreadySent = false;
-          let text = node.data.text ?? " ";
-          if (commentToUse) {
-            // Template exige recipient.id: abre a conversa com o texto primeiro.
-            await deliver(node.data.text || "  ", undefined, node.id);
-            textAlreadySent = true;
-            // O texto ja saiu; o template precisa de um corpo, mas repetir o
-            // mesmo texto seria a mesma mensagem duas vezes seguidas.
-            text = "Toque no botão abaixo 👇";
+          // O card exige um corpo; um espaco basta quando o no nao tem texto.
+          const text = node.data.text?.trim() || " ";
+
+          if (!buttons.length) {
+            if (text.trim()) await deliver(text, node.id);
+            break;
           }
-          if (buttons.length) {
-            if (!igsid) throw new Error("Sem IGSID para enviar os botoes.");
-            // Template exige recipient.id, entao nunca cabe numa private reply.
-            if (!(await canSendFreeform())) throw new Error(OUT_OF_WINDOW);
-            try {
-              const res = await sendButtons(igsid, text, buttons);
-              const convId = await ensureConversation();
-              await recordMessage({
-                accountId: ctx.accountId,
-                conversationId: convId,
-                direction: "out",
-                sender: "bot",
-                type: "template",
-                text: node.data.text ?? null,
-                mid: res.message_id ?? null,
-                payload: { buttons },
-                flowId: flow.id,
-              });
-            } catch (err) {
-              // O template e o unico jeito de ter botao de verdade, mas se o
-              // Instagram recusar (link invalido, template indisponivel) nao da
-              // para simplesmente perder a mensagem: a pessoa ficaria com o
-              // "toque no botao abaixo" e nenhum botao. Manda em texto:
-              // os links entram no corpo, os de postback viram quick reply.
-              if (!(err instanceof MetaError)) throw err;
-              console.error("[flow] template recusado, caindo para texto:", err.message);
 
-              const urls = buttons.flatMap((b) => (b.type === "web_url" ? [b.url] : []));
-              const replies = buttons.flatMap((b) =>
-                b.type === "postback" ? [{ title: b.title, payload: b.payload }] : [],
-              );
-              // O texto ja saiu como private reply neste caso; repetir seria uma
-              // mensagem duplicada. Mas quick reply nao existe sem mensagem —
-              // se e so isso que sobrou, o texto vai junto.
-              const parts = [textAlreadySent ? "" : text, ...urls].filter(Boolean);
-              const fallbackText = parts.join("\n\n") || (replies.length ? text : "");
-
-              if (fallbackText) {
-                await deliver(fallbackText, replies.length ? replies : undefined, node.id);
-              }
-            }
+          try {
+            await deliver(text, node.id, buttons);
+          } catch (err) {
+            // Se o Instagram recusar o card (link invalido, por exemplo), os
+            // links ainda podem ir no corpo da mensagem. Botao de postback nao
+            // tem como sair sem o card — ai o erro sobe e aparece no log do run.
+            if (!(err instanceof MetaError)) throw err;
+            const urls = buttons.flatMap((b) => (b.type === "web_url" ? [b.url] : []));
+            if (!urls.length) throw err;
+            console.error("[flow] card de botoes recusado, caindo para texto:", err.message);
+            await deliver([text.trim(), ...urls].filter(Boolean).join("\n\n"), node.id);
           }
           break;
         }

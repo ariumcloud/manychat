@@ -113,7 +113,15 @@ export async function getUserProfile(igsid: string): Promise<IgUserProfile | nul
 
 // --- Envio de mensagens ----------------------------------------------------
 
-export type QuickReply = { title: string; payload: string };
+/**
+ * Botao fixo na mensagem (button template). E o unico formato de botao do
+ * sistema: fica grudado na mensagem, ao contrario do quick reply, que some
+ * assim que a pessoa manda qualquer coisa. O clique num "postback" chega no
+ * webhook como `postback.payload`.
+ */
+export type TemplateButton =
+  | { type: "web_url"; title: string; url: string }
+  | { type: "postback"; title: string; payload: string };
 
 type SendResult = { recipient_id?: string; message_id?: string };
 
@@ -126,20 +134,19 @@ async function send(recipient: Recipient, message: unknown): Promise<SendResult>
   });
 }
 
-function withQuickReplies(text: string, quickReplies?: QuickReply[]) {
-  const message: Record<string, unknown> = { text };
-  if (quickReplies?.length) {
-    message.quick_replies = quickReplies.slice(0, 13).map((q) => ({
-      content_type: "text",
-      title: q.title.slice(0, 20),
-      payload: q.payload,
-    }));
-  }
-  return message;
+/** Texto puro, ou card com ate 3 botoes quando houver botao. */
+function textOrButtons(text: string, buttons?: TemplateButton[]) {
+  if (!buttons?.length) return { text };
+  return {
+    attachment: {
+      type: "template",
+      payload: { template_type: "button", text, buttons: buttons.slice(0, 3) },
+    },
+  };
 }
 
-export function sendText(igsid: string, text: string, quickReplies?: QuickReply[]) {
-  return send({ id: igsid }, withQuickReplies(text, quickReplies));
+export function sendText(igsid: string, text: string) {
+  return send({ id: igsid }, { text });
 }
 
 export function sendImage(igsid: string, url: string) {
@@ -147,23 +154,8 @@ export function sendImage(igsid: string, url: string) {
 }
 
 /** Card com ate 3 botoes (web_url ou postback). */
-export function sendButtons(
-  igsid: string,
-  text: string,
-  buttons: Array<
-    | { type: "web_url"; title: string; url: string }
-    | { type: "postback"; title: string; payload: string }
-  >,
-) {
-  return send(
-    { id: igsid },
-    {
-      attachment: {
-        type: "template",
-        payload: { template_type: "button", text, buttons: buttons.slice(0, 3) },
-      },
-    },
-  );
+export function sendButtons(igsid: string, text: string, buttons: TemplateButton[]) {
+  return send({ id: igsid }, textOrButtons(text, buttons));
 }
 
 /**
@@ -171,9 +163,12 @@ export function sendButtons(
  * E ISTO que faz o comentario->DM funcionar: em vez de recipient.id usamos
  * recipient.comment_id. So pode ser usado UMA vez por comentario e dentro de
  * 7 dias. Nao exige que a pessoa ja tenha te mandado DM antes.
+ *
+ * Como e a unica mensagem permitida ate a pessoa responder, o botao precisa
+ * vir DENTRO dela: o card de botoes tambem vale como private reply.
  */
-export function sendPrivateReply(commentId: string, text: string, quickReplies?: QuickReply[]) {
-  return send({ comment_id: commentId }, withQuickReplies(text, quickReplies));
+export function sendPrivateReply(commentId: string, text: string, buttons?: TemplateButton[]) {
+  return send({ comment_id: commentId }, textOrButtons(text, buttons));
 }
 
 // --- Comentarios -----------------------------------------------------------

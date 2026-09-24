@@ -113,19 +113,22 @@ async function postHandler(req: Request) {
     edges.push(...content.edges);
     edges.push({ id: "e-gate-yes", source: "gate", target: "msg", sourceHandle: "yes" });
 
-    // Pedido e botão na MESMA mensagem: quick reply é o único botão que cabe
-    // numa private reply, e é o único envio permitido antes de a pessoa
-    // responder. Um template de botão exigiria uma segunda mensagem, que o
-    // Instagram recusa.
+    // Pedido e botão na MESMA mensagem: a private reply é o único envio
+    // permitido antes de a pessoa responder, então o botão fixo vai dentro
+    // dela em vez de numa segunda mensagem, que o Instagram recusa.
     nodes.push({
       id: "ask-follow",
-      type: "quickReplies",
+      type: "buttons",
       position: { x: 640, y: 340 },
       data: {
         text: gateText,
         // payload preenchido depois do insert, quando o id do fluxo existe
-        options: [
-          { label: (body.follow_gate_button || "JÁ TE SEGUI ✅").slice(0, 20), payload: "" },
+        buttons: [
+          {
+            kind: "reply",
+            label: (body.follow_gate_button || "JÁ TE SEGUI ✅").slice(0, 20),
+            payload: "",
+          },
         ],
       },
     });
@@ -161,8 +164,8 @@ async function postHandler(req: Request) {
             ...n,
             data: {
               ...n.data,
-              options: (n.data.options ?? []).map((o) => ({
-                ...o,
+              buttons: (n.data.buttons ?? []).map((b) => ({
+                ...b,
                 payload: `flow:${flow.id}@gate`,
               })),
             },

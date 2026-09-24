@@ -7,6 +7,7 @@ import { getAccount, getOrCreateConversation, recordMessage, upsertContact } fro
 import { pickTrigger } from "@/lib/flow/matcher";
 import { runFlow } from "@/lib/flow/engine";
 import type { Flow, Trigger, TriggerKind } from "@/lib/flow/types";
+import { upgradeLegacyNodes } from "@/lib/flow/legacy";
 import { replyToComment } from "@/lib/meta/client";
 
 export const runtime = "nodejs";
@@ -103,7 +104,7 @@ async function processWebhook(body: WebhookBody) {
 
   for (const entry of body.entry ?? []) {
     for (const event of entry.messaging ?? []) {
-      const key = event.message?.mid ?? `${entry.id}:${event.timestamp}:msg`;
+      const key = event.message?.mid ?? event.postback?.mid ?? `${entry.id}:${event.timestamp}:msg`;
       if (await alreadySeen(key, body.object, event)) continue;
       await handleMessaging(event).catch((err) => logFailure(key, err));
     }
@@ -170,7 +171,7 @@ async function loadFlow(flowId: string): Promise<Flow | null> {
   }
 
   const { data } = await db().from("mc_flows").select("*").eq("id", flowId).maybeSingle();
-  const flow = data && data.status === "live" ? (data as Flow) : null;
+  const flow = data && data.status === "live" ? upgradeLegacyNodes(data as Flow) : null;
   flowCache.set(flowId, { flow, at: Date.now() });
   return flow;
 }
@@ -227,7 +228,10 @@ async function handleMessaging(event: MessagingEvent) {
   const conversation = await getOrCreateConversation(account.id, contact.id);
 
   const text = event.message?.text ?? event.postback?.title ?? "";
-  const payload = event.message?.quick_reply?.payload ?? event.postback?.payload ?? null;
+  // Clique em botao fixo chega como postback. O quick_reply so continua sendo
+  // lido para os quick replies enviados antes da troca, que ainda podem estar
+  // na tela de alguem.
+  const payload = event.postback?.payload ?? event.message?.quick_reply?.payload ?? null;
   const isStoryReply = Boolean(event.message?.reply_to?.story);
 
   await recordMessage({
@@ -242,7 +246,7 @@ async function handleMessaging(event: MessagingEvent) {
     payload: payload ? { payload } : null,
   });
 
-  // Botao / quick reply carrega o payload "flow:<id>" para continuar, ou
+  // Botao carrega o payload "flow:<id>" para continuar, ou
   // "flow:<id>@<no>" para retomar num ponto especifico. E o "@<no>" que evita
   // reenviar as mensagens que ja sairam antes do botao — o "ja te segui", por
   // exemplo, volta direto para o portao.
@@ -264,7 +268,7 @@ async function handleMessaging(event: MessagingEvent) {
         conversationId: conversation.id as string,
         lastText: text,
         source: "dm",
-        sourceRef: event.message?.mid ?? null,
+        sourceRef: event.message?.mid ?? event.postback?.mid ?? null,
         startNodeId: resumeAt,
       });
       return;
@@ -295,7 +299,7 @@ async function handleMessaging(event: MessagingEvent) {
       conversationId: conversation.id as string,
       lastText: text,
       source: isStoryReply ? "story" : "dm",
-      sourceRef: event.message?.mid ?? null,
+      sourceRef: event.message?.mid ?? event.postback?.mid ?? null,
       triggerId: chosen.id,
     });
     return;
