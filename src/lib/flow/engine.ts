@@ -105,12 +105,29 @@ function isLinkBlock(err: unknown) {
   return err instanceof MetaError && /we limit how often/i.test(err.message);
 }
 
+/**
+ * Ultima opcao sorteada por chave. Sorteio puro repete o mesmo texto em
+ * seguida 1 vez a cada N; aqui a opcao da vez anterior fica de fora. E por
+ * instancia da function, o que ja cobre as rajadas.
+ */
+const lastPicks = new Map<string, string>();
+
+export function pickFresh(key: string, options: string[]): string {
+  if (!options.length) return "";
+  const last = lastPicks.get(key);
+  const pool = options.length > 1 ? options.filter((o) => o !== last) : options;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  if (lastPicks.size > 5000) lastPicks.clear();
+  lastPicks.set(key, pick);
+  return pick;
+}
+
 /** Texto do no, sorteado entre o principal e as variacoes nao vazias. */
-function pickText(node: FlowNode): string {
+function pickText(flowId: string, node: FlowNode): string {
   const options = [node.data.text, ...(node.data.textVariants ?? [])].filter(
     (t): t is string => Boolean(t?.trim()),
   );
-  return options.length ? options[Math.floor(Math.random() * options.length)] : "";
+  return pickFresh(`${flowId}:${node.id}`, options);
 }
 
 function startNode(flow: Flow, startNodeId?: string | null): FlowNode | null {
@@ -532,7 +549,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
           break;
 
         case "text": {
-          const body = pickText(node);
+          const body = pickText(flow.id, node);
           let text = body;
           let url: string | null = null;
           // Rastreado so com dominio proprio (ver trackingBaseUrl).
@@ -556,7 +573,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
           // Instagram oferece para link em mensagem automatica. Em 24/09/2026
           // ele passou a recusar DM com link no texto, qualquer dominio, e o
           // botao seguiu passando. O rotulo e sorteado como o texto.
-          const title = LINK_BUTTON_TITLES[Math.floor(Math.random() * LINK_BUTTON_TITLES.length)];
+          const title = pickFresh(`${flow.id}:${node.id}:button`, LINK_BUTTON_TITLES);
           try {
             await deliver(body.trim() || "Aqui está 👇", node.id, [{ type: "web_url", title, url }]);
           } catch (err) {
@@ -619,7 +636,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
             ),
           );
           // O card exige um corpo; um espaco basta quando o no nao tem texto.
-          const text = pickText(node).trim() || " ";
+          const text = pickText(flow.id, node).trim() || " ";
 
           // Pedido que espera toque ("JA TE SEGUI") voltando por um toque:
           // a pessoa foi reprovada no portao. O botao do pedido anterior
@@ -629,7 +646,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
             const nudge = await askAgainOrNudge(node);
             if (nudge === "silent") break;
             if (nudge === "nudge") {
-              const t = NUDGE_TEXTS[Math.floor(Math.random() * NUDGE_TEXTS.length)];
+              const t = pickFresh(`${flow.id}:${node.id}:nudge`, NUDGE_TEXTS);
               await deliverMessage({
                 text: t,
                 type: "text",

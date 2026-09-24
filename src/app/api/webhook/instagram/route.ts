@@ -5,7 +5,7 @@ import type { ChangeEvent, MessagingEvent, WebhookBody } from "@/lib/meta/types"
 import { db } from "@/lib/supabase";
 import { getAccount, getOrCreateConversation, recordMessage, upsertContact } from "@/lib/repo";
 import { pickTrigger } from "@/lib/flow/matcher";
-import { runFlow } from "@/lib/flow/engine";
+import { pickFresh, runFlow } from "@/lib/flow/engine";
 import type { Flow, Trigger, TriggerKind } from "@/lib/flow/types";
 import { replyToComment } from "@/lib/meta/client";
 
@@ -461,8 +461,7 @@ async function handleChange(change: ChangeEvent) {
   // Resposta publica embaixo do comentario (opcional, sorteia entre as variacoes
   // pra nao ficar obvio que e bot).
   if (chosen.public_reply_enabled && chosen.public_reply_texts.length) {
-    const pick =
-      chosen.public_reply_texts[Math.floor(Math.random() * chosen.public_reply_texts.length)];
+    const pick = pickFresh(`reply:${chosen.id}`, chosen.public_reply_texts);
     try {
       await replyToComment(commentId, pick);
       await supabase.from("mc_comment_events").update({ public_replied: true }).eq("id", recorded.id);
