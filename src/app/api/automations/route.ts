@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { DEFAULT_ASK_FOLLOW_VARIANTS, DEFAULT_CONTENT_VARIANTS, withDefaultReplies } from "@/lib/flow/defaults";
+import {
+  DEFAULT_ASK_FOLLOW_VARIANTS,
+  DEFAULT_CONTENT_VARIANTS,
+  GROUP_BUTTON,
+  withDefaultReplies,
+} from "@/lib/flow/defaults";
 import { db } from "@/lib/supabase";
 import { getAccount } from "@/lib/repo";
 import { withApi } from "@/lib/api";
@@ -23,6 +28,8 @@ type Body = {
   follow_gate_enabled?: boolean;
   follow_gate_text?: string;
   follow_gate_button?: string;
+  /** Acrescenta o botao do grupo de networking ao conteudo. */
+  group_button_enabled?: boolean;
 };
 
 /**
@@ -34,6 +41,30 @@ type Body = {
  */
 function contentNodes(body: Body, x: number, y: number) {
   const url = body.button_url?.trim();
+
+  // Com o grupo, o conteudo vira bloco de Botoes: link do conteudo + grupo
+  // (o Instagram aceita ate 3 por mensagem, e o card vale como private reply).
+  if (body.group_button_enabled) {
+    const nodes: FlowNode[] = [
+      {
+        id: "msg",
+        type: "buttons",
+        position: { x, y },
+        data: {
+          text: body.dm_text!.trim(),
+          textVariants: DEFAULT_CONTENT_VARIANTS,
+          buttons: [
+            ...(url
+              ? [{ kind: "url" as const, label: (body.button_label?.trim() || "Acessar conteúdo").slice(0, 20), url }]
+              : []),
+            GROUP_BUTTON,
+          ],
+        },
+      },
+    ];
+    return { nodes, edges: [] as FlowEdge[] };
+  }
+
   const nodes: FlowNode[] = [
     {
       id: "msg",

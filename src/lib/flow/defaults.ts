@@ -38,3 +38,13 @@ export function withDefaultReplies(texts: string[]): string[] {
   if (own.length >= 3) return own;
   return [...own, ...DEFAULT_PUBLIC_REPLIES.filter((d) => !own.includes(d))];
 }
+
+/**
+ * Botao do grupo de networking que vai junto do conteudo. Label ate 20
+ * caracteres (limite do Instagram).
+ */
+export const GROUP_BUTTON = {
+  kind: "url" as const,
+  label: "Grupo de networking",
+  url: "https://chat.whatsapp.com/GdXBDckyHHx73enAYmvw9z?mode=gi_t",
+};

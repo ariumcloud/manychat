@@ -16,7 +16,7 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetchJson";
-import { DEFAULT_PUBLIC_REPLIES } from "@/lib/flow/defaults";
+import { DEFAULT_PUBLIC_REPLIES, GROUP_BUTTON } from "@/lib/flow/defaults";
 
 type Trigger = {
   id: string;
@@ -275,6 +275,7 @@ function CreateDrawer({
   const [publicReplyText, setPublicReplyText] = useState(DEFAULT_PUBLIC_REPLIES.join("\n"));
   const [onlyFirstTime, setOnlyFirstTime] = useState(false);
   const [followGate, setFollowGate] = useState(false);
+  const [groupButton, setGroupButton] = useState(true);
   const [gateText, setGateText] = useState(
     "Opa! Antes de te mandar, me segue aqui 👉 é rapidinho.\n\nDepois toca no botão abaixo que eu te envio na hora 👇",
   );
@@ -316,6 +317,7 @@ function CreateDrawer({
         public_reply_texts: publicReplyText.split("\n").map((t) => t.trim()).filter(Boolean),
         only_first_time: onlyFirstTime,
         follow_gate_enabled: followGate,
+        group_button_enabled: groupButton,
         follow_gate_text: gateText,
         follow_gate_button: gateButton,
       }),
@@ -558,6 +560,16 @@ function CreateDrawer({
               )}
             </div>
           )}
+
+          <label className="flex items-center gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={groupButton}
+              onChange={(e) => setGroupButton(e.target.checked)}
+              className="accent-[var(--accent)]"
+            />
+            Incluir botão &ldquo;{GROUP_BUTTON.label}&rdquo; na mensagem
+          </label>
 
           <label className="flex items-center gap-2.5 text-sm">
             <input
