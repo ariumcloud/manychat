@@ -9,12 +9,15 @@ import {
 import {
   MetaError,
   sendButtons,
+  sendGeneric,
   sendImage,
   sendPrivateReply,
   sendText,
+  type GenericElement,
   type TemplateButton,
 } from "../meta/client";
 import { appBaseUrl, createTrackedLink } from "../links";
+import { CATALOG_LIMITS, cardHandle, type CatalogItem } from "../catalog";
 import type { Flow, FlowEdge, FlowNode } from "./types";
 
 /**
@@ -54,6 +57,8 @@ export type RunContext = {
    */
   startNodeId?: string | null;
 };
+
+type SendResult = Awaited<ReturnType<typeof sendText>>;
 
 export type RunResult = {
   ok: boolean;
@@ -182,16 +187,31 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
    * reply, que e a unica mensagem permitida antes de a pessoa responder: texto
    * e botao precisam ir juntos.
    */
-  const deliver = async (
-    text: string,
-    nodeId?: string,
-    buttons?: TemplateButton[],
-  ): Promise<void> => {
-    const type = buttons?.length ? "template" : "text";
-    const payload = buttons?.length ? { nodeId, buttons } : { nodeId };
+  const deliver = (text: string, nodeId?: string, buttons?: TemplateButton[]) =>
+    deliverMessage({
+      text,
+      type: buttons?.length ? "template" : "text",
+      payload: buttons?.length ? { nodeId, buttons } : { nodeId },
+      toComment: (commentId) => sendPrivateReply(commentId, text, buttons),
+      toUser: (id) => (buttons?.length ? sendButtons(id, text, buttons) : sendText(id, text)),
+    });
+
+  /**
+   * Envio de qualquer formato de mensagem. `toComment` e usado enquanto a
+   * private reply ainda nao saiu; `toUser` depois. `text` e o que fica gravado
+   * no inbox.
+   */
+  const deliverMessage = async (msg: {
+    text: string;
+    type: string;
+    payload: Record<string, unknown>;
+    toComment: (commentId: string) => Promise<SendResult>;
+    toUser: (igsid: string) => Promise<SendResult>;
+  }): Promise<void> => {
+    const { text, type, payload } = msg;
 
     if (commentToUse) {
-      const res = await sendPrivateReply(commentToUse, text, buttons);
+      const res = await msg.toComment(commentToUse);
       commentToUse = null;
 
       // O id que vem no webhook de comentario nem sempre e o mesmo que a API de
@@ -240,9 +260,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
 
     if (!igsid) throw new Error("Sem IGSID para enviar a mensagem.");
     if (!(await canSendFreeform())) throw new Error(OUT_OF_WINDOW);
-    const res = buttons?.length
-      ? await sendButtons(igsid, text, buttons)
-      : await sendText(igsid, text);
+    const res = await msg.toUser(igsid);
     const convId = await ensureConversation();
     await recordMessage({
       accountId: ctx.accountId,
@@ -326,6 +344,75 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
       return op === "lt" ? n < target : n > target;
     }
     return false;
+  };
+
+  /**
+   * Carrossel do catalogo (generic template). Botao "url" vira link rastreado;
+   * botao "flow" vira postback "flow:<fluxo>@<no>", com o no de destino vindo
+   * da saida do card — o clique volta pelo webhook como qualquer outro botao.
+   * Um card "flow" sem saida ligada vai sem botao.
+   */
+  const sendCarousel = async (node: FlowNode) => {
+    const ids = (node.data.items ?? []).slice(0, CATALOG_LIMITS.cards);
+    if (!ids.length) return;
+
+    const { data, error } = await supabase
+      .from("mc_catalog_items")
+      .select("*")
+      .eq("account_id", ctx.accountId)
+      .in("id", ids);
+    if (error) throw new Error(`Nao consegui carregar o catalogo: ${error.message}`);
+
+    const byId = new Map(((data ?? []) as CatalogItem[]).map((i) => [i.id, i]));
+    const items = ids.flatMap((id) => byId.get(id) ?? []);
+    if (!items.length) throw new Error("Nenhum item do carrossel existe mais no catalogo.");
+
+    const elements: GenericElement[] = await Promise.all(
+      items.map(async (item) => {
+        let button: TemplateButton | null = null;
+        if (item.button_action === "url" && item.button_url) {
+          button = {
+            type: "web_url",
+            title: item.button_label,
+            url: await createTrackedLink({
+              accountId: ctx.accountId,
+              url: item.button_url,
+              contactId,
+              flowId: flow.id,
+              triggerId: ctx.triggerId ?? null,
+              baseUrl: appBaseUrl(),
+            }),
+          };
+        } else if (item.button_action === "flow") {
+          const edge = (flow.edges ?? []).find(
+            (e) => e.source === node.id && e.sourceHandle === cardHandle(item.id),
+          );
+          if (edge) {
+            button = {
+              type: "postback",
+              title: item.button_label,
+              payload: `flow:${flow.id}@${edge.target}`,
+            };
+          } else {
+            console.warn(`[flow] card "${item.title}" sem saida ligada; vai sem botao.`);
+          }
+        }
+        return {
+          title: item.title,
+          subtitle: item.subtitle ?? undefined,
+          image_url: item.image_url,
+          buttons: button ? [button] : [],
+        };
+      }),
+    );
+
+    await deliverMessage({
+      text: `🛍️ ${items.map((i) => i.title).join(" · ")}`,
+      type: "template",
+      payload: { nodeId: node.id, elements },
+      toComment: (commentId) => sendGeneric({ comment_id: commentId }, elements),
+      toUser: (id) => sendGeneric({ id }, elements),
+    });
   };
 
   const applyTag = async (name: string) => {
@@ -460,6 +547,13 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
 
         case "condition":
           handle = (await evaluateCondition(node)) ? "yes" : "no";
+          break;
+
+        case "carousel":
+          await sendCarousel(node);
+          // Saida exata: as arestas dos cards sao destinos de clique, nao a
+          // continuacao do fluxo. So segue na hora se "em seguida" estiver ligada.
+          handle = "next";
           break;
       }
 

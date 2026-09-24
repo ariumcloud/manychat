@@ -128,6 +128,14 @@ escreveu. Só funciona **uma vez por comentário** e dentro de **7 dias**.
 - **Botões**: sempre fixos na mensagem (button template), máximo 3 por card,
   título de até 20 caracteres. Numa resposta a comentário o card vai dentro da
   própria private reply — é a única mensagem permitida até a pessoa responder.
+- **Carrossel** (bloco "Carrossel", generic template): até 10 cards, título e
+  descrição de até 80 caracteres, 1 botão por card. Os cards vêm do
+  **Catálogo** (`mc_catalog_items`, imagens no bucket público `mc-catalog`) e o
+  bloco guarda só os ids, então o mesmo item serve em vários fluxos. Botão de
+  link sai rastreado (`/r/<token>`); botão "continua o fluxo" vira postback
+  `flow:<fluxo>@<nó>`, com o nó vindo da saída própria do card no bloco.
+  Via private reply (comentário) o generic template **ainda não foi testado** —
+  a doc da Meta só o documenta com `recipient.id`.
 - **Delay em serverless**: máximo 8s por nó — a função morre junto com a
   resposta. Delays longos precisariam de fila (QStash, Inngest, cron).
 
@@ -135,7 +143,7 @@ escreveu. Só funciona **uma vez por comentário** e dentro de **7 dias**.
 
 `mc_accounts`, `mc_contacts`, `mc_tags`, `mc_contact_tags`, `mc_conversations`,
 `mc_messages`, `mc_flows`, `mc_triggers`, `mc_flow_runs`, `mc_comment_events`,
-`mc_webhook_events`, `mc_broadcasts`.
+`mc_webhook_events`, `mc_broadcasts`, `mc_catalog_items`.
 
 O prefixo existe porque o PostgREST só atende schemas que estejam na lista de
 **Exposed schemas** do projeto — configuração de painel, não de migração. Um

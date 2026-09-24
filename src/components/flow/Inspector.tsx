@@ -1,7 +1,10 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
 import type { FlowButton, FlowNode, FlowNodeData } from "@/lib/flow/types";
+import { CATALOG_LIMITS } from "@/lib/catalog";
+import { useCatalog } from "./catalog-context";
 
 type Props = {
   node: FlowNode | null;
@@ -192,6 +195,10 @@ export function Inspector({ node, onChange, onDelete }: Props) {
           </div>
         )}
 
+        {node.type === "carousel" && (
+          <CarouselFields items={d.items ?? []} onChange={(items) => onChange({ items })} />
+        )}
+
         {node.type === "delay" && (
           <div>
             <label className="label" htmlFor="i-delay">
@@ -288,5 +295,131 @@ export function Inspector({ node, onChange, onDelete }: Props) {
         </div>
       )}
     </aside>
+  );
+}
+
+function CarouselFields({
+  items,
+  onChange,
+}: {
+  items: string[];
+  onChange: (items: string[]) => void;
+}) {
+  const catalog = useCatalog();
+  const available = catalog.items.filter((i) => !items.includes(i.id));
+  const full = items.length >= CATALOG_LIMITS.cards;
+
+  function move(from: number, to: number) {
+    if (to < 0 || to >= items.length) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange(next);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <span className="label">
+          Cards ({items.length}/{CATALOG_LIMITS.cards})
+        </span>
+        <div className="space-y-1.5">
+          {items.map((id, i) => {
+            const item = catalog.byId.get(id);
+            return (
+              <div
+                key={id}
+                className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg)] p-1.5"
+              >
+                {item ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.image_url} alt="" className="h-9 w-9 shrink-0 rounded object-cover" />
+                ) : (
+                  <div className="h-9 w-9 shrink-0 rounded bg-[var(--bg-elev-2)]" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs">
+                    {item?.title ?? (catalog.loading ? "carregando…" : "item removido")}
+                  </div>
+                  {item && (
+                    <div className="truncate text-[10px] text-[var(--fg-dim)]">
+                      {item.button_action === "flow" ? "continua o fluxo" : "abre link"} ·{" "}
+                      {item.button_label}
+                    </div>
+                  )}
+                </div>
+                <div className="flex shrink-0 flex-col">
+                  <button
+                    type="button"
+                    aria-label="Subir"
+                    className="text-[var(--fg-dim)] hover:text-[var(--fg)] disabled:opacity-30"
+                    disabled={i === 0}
+                    onClick={() => move(i, i - 1)}
+                  >
+                    <ChevronUp size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Descer"
+                    className="text-[var(--fg-dim)] hover:text-[var(--fg)] disabled:opacity-30"
+                    disabled={i === items.length - 1}
+                    onClick={() => move(i, i + 1)}
+                  >
+                    <ChevronDown size={13} />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Remover card"
+                  className="shrink-0 text-[var(--fg-dim)] hover:text-[var(--danger)]"
+                  onClick={() => onChange(items.filter((x) => x !== id))}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {catalog.error ? (
+        <p className="text-xs text-[var(--danger)]">{catalog.error}</p>
+      ) : (
+        <select
+          className="input"
+          value=""
+          disabled={full || !available.length}
+          onChange={(e) => e.target.value && onChange([...items, e.target.value])}
+        >
+          <option value="">
+            {full
+              ? "Limite de 10 cards"
+              : available.length
+                ? "Adicionar item do catálogo…"
+                : catalog.items.length
+                  ? "Todos os itens já estão aqui"
+                  : "Catálogo vazio"}
+          </option>
+          {available.map((i) => (
+            <option key={i.id} value={i.id}>
+              {i.title}
+            </option>
+          ))}
+        </select>
+      )}
+
+      <Link href="/catalogo" target="_blank" className="block text-xs text-[var(--accent)] hover:underline">
+        Gerenciar catálogo ↗
+      </Link>
+
+      <p className="text-xs text-[var(--fg-dim)]">
+        Cards que &ldquo;continuam o fluxo&rdquo; ganham uma saída própria no bloco: ligue cada uma
+        ao passo que o clique deve abrir. A saída de baixo segue logo após o envio.
+      </p>
+      <p className="text-xs text-[var(--warn)]">
+        Em fluxo de comentário, o carrossel ainda não foi testado como primeira mensagem (resposta
+        privada).
+      </p>
+    </div>
   );
 }

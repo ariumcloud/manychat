@@ -1,8 +1,10 @@
 "use client";
 
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { useEffect } from "react";
+import { Handle, Position, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
 import {
   Clock,
+  GalleryHorizontal,
   GitBranch,
   Image as ImageIcon,
   MessageSquare,
@@ -11,6 +13,8 @@ import {
   Zap,
 } from "lucide-react";
 import type { FlowNodeData } from "@/lib/flow/types";
+import { cardHandle } from "@/lib/catalog";
+import { useCatalog } from "./catalog-context";
 
 const shell =
   "min-w-[210px] max-w-[260px] rounded-xl border bg-[var(--bg-elev)] text-[13px] shadow-lg transition-colors";
@@ -194,6 +198,69 @@ export function ConditionNode({ data, selected }: Props) {
   );
 }
 
+/**
+ * Carrossel do catalogo. Cada card com botao "flow" ganha uma saida propria —
+ * e ela que diz para onde o clique leva, como o sim/nao da condicao. A saida
+ * "em seguida" (embaixo) e a continuacao imediata apos o envio.
+ */
+export function CarouselNode({ id, data, selected }: Props) {
+  const { byId, loading } = useCatalog();
+  const ids = data.items ?? [];
+  const updateNodeInternals = useUpdateNodeInternals();
+
+  // Saidas mudam conforme os cards: o React Flow so as enxerga se avisado.
+  const handleKey = ids
+    .map((itemId) => `${itemId}:${byId.get(itemId)?.button_action ?? ""}`)
+    .join(",");
+  useEffect(() => updateNodeInternals(id), [id, handleKey, updateNodeInternals]);
+
+  return (
+    <div
+      className={`${shell} relative pb-6 ${selected ? "border-[var(--accent)]" : "border-[var(--border)]"}`}
+    >
+      <Handle type="target" position={Position.Left} />
+      <Header icon={GalleryHorizontal} title="Carrossel" />
+      <div className="space-y-1.5 px-3 py-2.5">
+        {!ids.length && <span className="text-[var(--fg-dim)]">sem cards</span>}
+        {ids.map((itemId, i) => {
+          const item = byId.get(itemId);
+          return (
+            <div
+              key={itemId}
+              className="relative flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg)] px-2 py-1.5"
+            >
+              <span className="w-4 shrink-0 text-[10px] text-[var(--fg-dim)]">{i + 1}</span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px]">
+                  {item?.title ?? (loading ? "carregando…" : "item removido do catálogo")}
+                </div>
+                {item && (
+                  <div className="truncate text-[10px] text-[var(--fg-dim)]">
+                    {item.button_action === "flow" ? "↗ " : "🔗 "}
+                    {item.button_label}
+                  </div>
+                )}
+              </div>
+              {item?.button_action === "flow" && (
+                <Handle
+                  type="source"
+                  position={Position.Right}
+                  id={cardHandle(itemId)}
+                  style={{ right: -13 }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <span className="absolute bottom-1.5 right-3 text-[10px] text-[var(--fg-dim)]">
+        em seguida ↘
+      </span>
+      <Handle type="source" position={Position.Bottom} id="next" />
+    </div>
+  );
+}
+
 export const nodeTypes = {
   trigger: TriggerNode,
   text: TextNode,
@@ -202,4 +269,5 @@ export const nodeTypes = {
   delay: DelayNode,
   tag: TagNode,
   condition: ConditionNode,
+  carousel: CarouselNode,
 };

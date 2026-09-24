@@ -125,7 +125,7 @@ export type TemplateButton =
 
 type SendResult = { recipient_id?: string; message_id?: string };
 
-type Recipient = { id: string } | { comment_id: string };
+export type Recipient = { id: string } | { comment_id: string };
 
 async function send(recipient: Recipient, message: unknown): Promise<SendResult> {
   return call<SendResult>(`${selfId()}/messages`, {
@@ -169,6 +169,46 @@ export function sendButtons(igsid: string, text: string, buttons: TemplateButton
  */
 export function sendPrivateReply(commentId: string, text: string, buttons?: TemplateButton[]) {
   return send({ comment_id: commentId }, textOrButtons(text, buttons));
+}
+
+/**
+ * Card do carrossel (generic template): imagem, titulo, subtitulo e ate 3
+ * botoes. O Instagram aceita ate 10 cards, titulo e subtitulo de ate 80
+ * caracteres.
+ */
+export type GenericElement = {
+  title: string;
+  subtitle?: string;
+  image_url: string;
+  buttons?: TemplateButton[];
+};
+
+/**
+ * Carrossel de cards. Vale tanto para DM (`{ id }`) quanto para private reply
+ * (`{ comment_id }`): num comentario ele precisa ir DENTRO da private reply,
+ * que e a unica mensagem permitida ate a pessoa responder.
+ *
+ * ATENCAO: a doc da Meta so documenta generic template com recipient.id. O
+ * button template via comment_id funciona em producao, mas o generic ainda
+ * nao foi testado nesse caminho — se a Meta recusar, o erro sobe e aparece
+ * no log do run.
+ */
+export function sendGeneric(recipient: Recipient, elements: GenericElement[]) {
+  return send(recipient, {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "generic",
+        // Campo vazio vai omitido: subtitle "" e buttons [] nao tem por que ir.
+        elements: elements.slice(0, 10).map(({ title, subtitle, image_url, buttons }) => ({
+          title: title.slice(0, 80),
+          image_url,
+          ...(subtitle ? { subtitle: subtitle.slice(0, 80) } : {}),
+          ...(buttons?.length ? { buttons: buttons.slice(0, 3) } : {}),
+        })),
+      },
+    },
+  });
 }
 
 // --- Comentarios -----------------------------------------------------------

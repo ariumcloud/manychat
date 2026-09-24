@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   LogOut,
   MessageSquareShare,
+  ShoppingBag,
   Settings,
   TrendingUp,
   Workflow,
@@ -37,6 +38,7 @@ const NAV = [
     items: [
       { href: "/reels", label: "Reels", icon: Clapperboard },
       { href: "/carrossel", label: "Carrosséis", icon: LayoutGrid },
+      { href: "/catalogo", label: "Catálogo", icon: ShoppingBag },
       { href: "/duvidas", label: "Dúvidas", icon: HelpCircle },
     ],
   },

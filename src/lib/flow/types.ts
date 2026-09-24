@@ -5,7 +5,8 @@ export type NodeKind =
   | "buttons"
   | "delay"
   | "tag"
-  | "condition";
+  | "condition"
+  | "carousel";
 
 export type FlowButton =
   | { kind: "url"; label: string; url: string }
@@ -26,6 +27,11 @@ export type FlowNodeData = {
    * link viaja dentro do texto em vez de num botão, que exigiria uma segunda.
    */
   link?: { url: string; label?: string };
+  /**
+   * carousel: ids de mc_catalog_items, na ordem dos cards (max. 10). O item
+   * mora no catalogo; o no guarda so a referencia.
+   */
+  items?: string[];
   /** delay (segundos) */
   seconds?: number;
   /** tag */

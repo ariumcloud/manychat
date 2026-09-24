@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addEdge,
   Background,
@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   Check,
   Clock,
+  GalleryHorizontal,
   GitBranch,
   Image as ImageIcon,
   Loader2,
@@ -30,6 +31,8 @@ import {
 import Link from "next/link";
 import { nodeTypes } from "@/components/flow/nodes";
 import { Inspector } from "@/components/flow/Inspector";
+import { CatalogContext, type CatalogState } from "@/components/flow/catalog-context";
+import { cardHandle, type CatalogItem } from "@/lib/catalog";
 import type { Flow, FlowNode, FlowNodeData, NodeKind } from "@/lib/flow/types";
 import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetchJson";
@@ -37,6 +40,7 @@ import { fetchJson } from "@/lib/fetchJson";
 const PALETTE: Array<{ kind: NodeKind; label: string; icon: typeof MessageSquare; data: FlowNodeData }> = [
   { kind: "text", label: "Mensagem", icon: MessageSquare, data: { text: "Escreva aqui…" } },
   { kind: "buttons", label: "Botões", icon: MousePointerClick, data: { text: "Escolha:", buttons: [] } },
+  { kind: "carousel", label: "Carrossel", icon: GalleryHorizontal, data: { items: [] } },
   { kind: "image", label: "Imagem", icon: ImageIcon, data: { url: "" } },
   { kind: "delay", label: "Espera", icon: Clock, data: { seconds: 2 } },
   { kind: "tag", label: "Aplicar tag", icon: Tag, data: { tagName: "" } },
@@ -75,6 +79,33 @@ function Canvas({ flow }: { flow: Flow }) {
   // Contador em vez de Date.now(): ids estáveis e sem impureza no render.
   const nodeSeq = useRef((flow.nodes ?? []).length);
 
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchJson<{ items: CatalogItem[] }>("/api/catalog").then(({ ok, data, error: err }) => {
+      if (!alive) return;
+      if (ok) setCatalogItems(data?.items ?? []);
+      else setCatalogError(err ?? "Não consegui carregar o catálogo.");
+      setCatalogLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const catalog = useMemo<CatalogState>(
+    () => ({
+      items: catalogItems,
+      byId: new Map(catalogItems.map((i) => [i.id, i])),
+      loading: catalogLoading,
+      error: catalogError,
+    }),
+    [catalogItems, catalogLoading, catalogError],
+  );
+
   const selected = useMemo(
     () => (nodes.find((n) => n.id === selectedId) as FlowNode | undefined) ?? null,
     [nodes, selectedId],
@@ -108,6 +139,18 @@ function Canvas({ flow }: { flow: Flow }) {
     setNodes((prev) =>
       prev.map((n) => (n.id === selectedId ? { ...n, data: { ...n.data, ...patch } } : n)),
     );
+    // Card tirado do carrossel leva junto a aresta da saida dele.
+    if (patch.items) {
+      const kept = new Set(patch.items.map(cardHandle));
+      setEdges((prev) =>
+        prev.filter(
+          (e) =>
+            e.source !== selectedId ||
+            !e.sourceHandle?.startsWith("card-") ||
+            kept.has(e.sourceHandle),
+        ),
+      );
+    }
   }
 
   function deleteSelected() {
@@ -149,84 +192,86 @@ function Canvas({ flow }: { flow: Flow }) {
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex items-center gap-3 border-b border-[var(--border)] px-5 py-3">
-        <Link href="/fluxos" className="text-[var(--fg-dim)] hover:text-[var(--fg)]">
-          <ArrowLeft size={17} />
-        </Link>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-64 rounded-lg bg-transparent px-2 py-1 text-sm font-medium outline-none focus:bg-[var(--bg-elev-2)]"
-        />
+    <CatalogContext.Provider value={catalog}>
+      <div className="flex h-screen flex-col">
+        <header className="flex items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+          <Link href="/fluxos" className="text-[var(--fg-dim)] hover:text-[var(--fg)]">
+            <ArrowLeft size={17} />
+          </Link>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-64 rounded-lg bg-transparent px-2 py-1 text-sm font-medium outline-none focus:bg-[var(--bg-elev-2)]"
+          />
 
-        <span
-          className={cn(
-            "chip",
-            status === "live" ? "chip-ok" : status === "paused" ? "chip-warn" : "",
-          )}
-        >
-          {status === "live" ? "no ar" : status === "paused" ? "pausado" : "rascunho"}
-        </span>
-
-        {error && <span className="text-xs text-[var(--danger)]">{error}</span>}
-        {savedAt && !error && (
-          <span className="flex items-center gap-1 text-xs text-[var(--fg-dim)]">
-            <Check size={12} /> salvo {savedAt}
+          <span
+            className={cn(
+              "chip",
+              status === "live" ? "chip-ok" : status === "paused" ? "chip-warn" : "",
+            )}
+          >
+            {status === "live" ? "no ar" : status === "paused" ? "pausado" : "rascunho"}
           </span>
-        )}
 
-        <div className="ml-auto flex gap-2">
-          <button className="btn btn-ghost" onClick={() => save()} disabled={saving}>
-            {saving && <Loader2 size={14} className="animate-spin" />} Salvar
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => save(status === "live" ? "paused" : "live")}
-            disabled={saving}
-          >
-            {status === "live" ? "Pausar" : "Publicar"}
-          </button>
-        </div>
-      </header>
+          {error && <span className="text-xs text-[var(--danger)]">{error}</span>}
+          {savedAt && !error && (
+            <span className="flex items-center gap-1 text-xs text-[var(--fg-dim)]">
+              <Check size={12} /> salvo {savedAt}
+            </span>
+          )}
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="w-52 shrink-0 space-y-1 border-r border-[var(--border)] bg-[var(--bg-elev)] p-3">
-          <p className="px-2 pb-2 text-[11px] font-medium uppercase tracking-wide text-[var(--fg-dim)]">
-            Blocos
-          </p>
-          {PALETTE.map(({ kind, label, icon: Icon, data }) => (
-            <button
-              key={kind}
-              onClick={() => addNode(kind, data)}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[var(--fg-muted)] transition-colors hover:bg-[var(--bg-elev-2)] hover:text-[var(--fg)]"
-            >
-              <Icon size={15} />
-              {label}
+          <div className="ml-auto flex gap-2">
+            <button className="btn btn-ghost" onClick={() => save()} disabled={saving}>
+              {saving && <Loader2 size={14} className="animate-spin" />} Salvar
             </button>
-          ))}
-        </aside>
+            <button
+              className="btn btn-primary"
+              onClick={() => save(status === "live" ? "paused" : "live")}
+              disabled={saving}
+            >
+              {status === "live" ? "Pausar" : "Publicar"}
+            </button>
+          </div>
+        </header>
 
-        <div className="min-w-0 flex-1">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            onNodeClick={(_, node) => setSelectedId(node.id)}
-            onPaneClick={() => setSelectedId(null)}
-            fitView
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#1e2230" />
-            <Controls showInteractive={false} />
-          </ReactFlow>
+        <div className="flex min-h-0 flex-1">
+          <aside className="w-52 shrink-0 space-y-1 border-r border-[var(--border)] bg-[var(--bg-elev)] p-3">
+            <p className="px-2 pb-2 text-[11px] font-medium uppercase tracking-wide text-[var(--fg-dim)]">
+              Blocos
+            </p>
+            {PALETTE.map(({ kind, label, icon: Icon, data }) => (
+              <button
+                key={kind}
+                onClick={() => addNode(kind, data)}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-[var(--fg-muted)] transition-colors hover:bg-[var(--bg-elev-2)] hover:text-[var(--fg)]"
+              >
+                <Icon size={15} />
+                {label}
+              </button>
+            ))}
+          </aside>
+
+          <div className="min-w-0 flex-1">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              onNodeClick={(_, node) => setSelectedId(node.id)}
+              onPaneClick={() => setSelectedId(null)}
+              fitView
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#1e2230" />
+              <Controls showInteractive={false} />
+            </ReactFlow>
+          </div>
+
+          <Inspector node={selected} onChange={patchSelected} onDelete={deleteSelected} />
         </div>
-
-        <Inspector node={selected} onChange={patchSelected} onDelete={deleteSelected} />
       </div>
-    </div>
+    </CatalogContext.Provider>
   );
 }
