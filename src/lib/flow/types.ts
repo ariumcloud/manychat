@@ -16,6 +16,12 @@ export type FlowNodeData = {
   label?: string;
   /** text, buttons */
   text?: string;
+  /**
+   * text, buttons: textos alternativos. A cada envio sai um sorteado entre
+   * `text` e estes — mandar a mesma frase centenas de vezes por dia e o que
+   * o antispam do Instagram mais pega.
+   */
+  textVariants?: string[];
   /** image */
   url?: string;
   /** buttons */

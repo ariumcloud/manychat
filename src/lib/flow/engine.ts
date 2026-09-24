@@ -67,6 +67,14 @@ export type RunResult = {
   error?: string;
 };
 
+/** Texto do no, sorteado entre o principal e as variacoes nao vazias. */
+function pickText(node: FlowNode): string {
+  const options = [node.data.text, ...(node.data.textVariants ?? [])].filter(
+    (t): t is string => Boolean(t?.trim()),
+  );
+  return options.length ? options[Math.floor(Math.random() * options.length)] : "";
+}
+
 function startNode(flow: Flow, startNodeId?: string | null): FlowNode | null {
   const nodes = flow.nodes ?? [];
   if (startNodeId) {
@@ -454,7 +462,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
           break;
 
         case "text": {
-          let text = node.data.text ?? "";
+          let text = pickText(node);
           // O link vai no corpo da mensagem, rastreado do mesmo jeito.
           if (node.data.link?.url) {
             const url = await createTrackedLink({
@@ -520,7 +528,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
             ),
           );
           // O card exige um corpo; um espaco basta quando o no nao tem texto.
-          const text = node.data.text?.trim() || " ";
+          const text = pickText(node).trim() || " ";
 
           if (!buttons.length) {
             if (text.trim()) await deliver(text, node.id);

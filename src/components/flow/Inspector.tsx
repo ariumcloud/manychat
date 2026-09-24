@@ -55,6 +55,13 @@ export function Inspector({ node, onChange, onDelete }: Props) {
           </div>
         )}
 
+        {(node.type === "text" || node.type === "buttons") && (
+          <TextVariants
+            variants={d.textVariants ?? []}
+            onChange={(textVariants) => onChange({ textVariants })}
+          />
+        )}
+
         {node.type === "text" && (
           <div className="card p-3 space-y-2">
             <div className="flex items-center justify-between">
@@ -419,6 +426,45 @@ function CarouselFields({
       <p className="text-xs text-[var(--warn)]">
         Não funciona como resposta a comentário. Em fluxo de comentário, coloque o carrossel depois
         de um botão (ex.: &ldquo;JÁ TE SEGUI&rdquo;), quando a conversa já estiver aberta.
+      </p>
+    </div>
+  );
+}
+
+function TextVariants({
+  variants,
+  onChange,
+}: {
+  variants: string[];
+  onChange: (variants: string[]) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <span className="label">Variações da mensagem ({variants.length})</span>
+      {variants.map((v, i) => (
+        <div key={i} className="flex gap-1.5">
+          <textarea
+            rows={3}
+            className="input resize-none"
+            value={v}
+            onChange={(e) => onChange(variants.map((x, idx) => (idx === i ? e.target.value : x)))}
+          />
+          <button
+            type="button"
+            aria-label="Remover variação"
+            className="shrink-0 self-start pt-2 text-[var(--fg-dim)] hover:text-[var(--danger)]"
+            onClick={() => onChange(variants.filter((_, idx) => idx !== i))}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
+      <button className="btn btn-ghost w-full" onClick={() => onChange([...variants, ""])}>
+        <Plus size={14} /> Adicionar variação
+      </button>
+      <p className="text-[10px] text-[var(--fg-dim)]">
+        A cada envio sai uma sorteada entre a mensagem principal e estas. Mandar sempre a mesma
+        frase é o que o antispam do Instagram mais pega.
       </p>
     </div>
   );

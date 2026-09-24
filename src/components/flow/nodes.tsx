@@ -95,10 +95,21 @@ function Standard({
   );
 }
 
+function VariantsBadge({ data }: { data: FlowNodeData }) {
+  const n = (data.textVariants ?? []).filter((t) => t.trim()).length;
+  if (!n) return null;
+  return (
+    <span className="chip mb-2 inline-block text-[10px]">
+      +{n} variaç{n === 1 ? "ão" : "ões"}
+    </span>
+  );
+}
+
 export function TextNode({ data, selected }: Props) {
   return (
     <Standard selected={!!selected} icon={MessageSquare} title="Mensagem" empty="mensagem vazia">
       {data.text && <p className="whitespace-pre-wrap">{data.text}</p>}
+      <VariantsBadge data={data} />
       {data.link?.url && (
         <div className="mt-2 rounded-md border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-[11px]">
           <span className="truncate block font-mono text-[10px] text-[var(--accent)]" title={data.link.url}>
@@ -126,6 +137,7 @@ export function ButtonsNode({ data, selected }: Props) {
   return (
     <Standard selected={!!selected} icon={MousePointerClick} title="Botões" empty="sem botões">
       {data.text && <p className="mb-2 whitespace-pre-wrap">{data.text}</p>}
+      <VariantsBadge data={data} />
       <div className="space-y-1.5">
         {(data.buttons ?? []).map((b, i) => (
           <div
