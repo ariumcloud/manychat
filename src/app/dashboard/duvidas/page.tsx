@@ -176,7 +176,7 @@ export default function DuvidasPage() {
                               <p className="text-xs leading-relaxed">{t.sugestao_de_post}</p>
                               {isAdmin && (
                                 <Link
-                                  href="/carrossel"
+                                  href="/dashboard/carrossel"
                                   className="mt-1.5 inline-block text-[11px] text-[var(--accent)] hover:underline"
                                 >
                                   virar carrossel →

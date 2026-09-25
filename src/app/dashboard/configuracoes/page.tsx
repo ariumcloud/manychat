@@ -237,7 +237,7 @@ function ClientsPanel() {
       body: JSON.stringify({ accountId }),
     });
     if (!ok) return setMessage({ ok: false, text: error ?? "Não consegui trocar." });
-    router.push("/");
+    router.push("/dashboard");
     router.refresh();
   }
 

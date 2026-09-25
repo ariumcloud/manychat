@@ -294,7 +294,7 @@ function TriggerCard({
         </span>
         <div className="flex items-center gap-1.5">
           {trigger.flows && (
-            <Link href={`/fluxos/${trigger.flows.id}`} className="btn btn-ghost !px-2.5 !py-1 text-xs">
+            <Link href={`/dashboard/fluxos/${trigger.flows.id}`} className="btn btn-ghost !px-2.5 !py-1 text-xs">
               Editar fluxo
             </Link>
           )}

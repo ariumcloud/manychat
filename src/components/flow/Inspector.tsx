@@ -430,7 +430,7 @@ function CarouselFields({
         </select>
       )}
 
-      <Link href="/catalogo" target="_blank" className="block text-xs text-[var(--accent)] hover:underline">
+      <Link href="/dashboard/catalogo" target="_blank" className="block text-xs text-[var(--accent)] hover:underline">
         Gerenciar catálogo ↗
       </Link>
 

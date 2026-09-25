@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 function back(req: Request, status: string) {
-  const res = NextResponse.redirect(`${publicOrigin(req)}/configuracoes?ig=${encodeURIComponent(status)}`);
+  const res = NextResponse.redirect(`${publicOrigin(req)}/dashboard/configuracoes?ig=${encodeURIComponent(status)}`);
   res.cookies.set(STATE_COOKIE, "", { path: "/api/instagram", maxAge: 0 });
   return res;
 }

@@ -339,7 +339,7 @@ function ReelDetail({ reel, onClose }: { reel: Reel; onClose: () => void }) {
         </div>
 
         <div className="border-t border-[var(--border)] p-4">
-          <Link href={`/automacoes?media=${reel.id}`} className="btn btn-primary w-full">
+          <Link href={`/dashboard/automacoes?media=${reel.id}`} className="btn btn-primary w-full">
             <Sparkles size={15} /> Criar automação neste post
           </Link>
           <p className="mt-2 text-center text-[11px] text-[var(--fg-dim)]">

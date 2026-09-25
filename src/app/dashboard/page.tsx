@@ -165,7 +165,7 @@ export default async function OverviewPage() {
             <p className="max-w-xl text-sm leading-relaxed text-[var(--fg-muted)]">
               Entre em Configurações e toque em Conectar Instagram para começar.
             </p>
-            <Link href="/configuracoes" className="btn btn-primary mt-4">
+            <Link href="/dashboard/configuracoes" className="btn btn-primary mt-4">
               Ir para configurações <ArrowUpRight size={15} />
             </Link>
           </Panel>
@@ -196,7 +196,7 @@ export default async function OverviewPage() {
         title="Visão geral"
         subtitle={connected ? `@${account.username ?? account.ig_user_id} · últimos ${DAYS} dias` : "Instagram ainda não conectado"}
         action={
-          <Link href="/automacoes" className="btn btn-primary">
+          <Link href="/dashboard/automacoes" className="btn btn-primary">
             Nova automação
           </Link>
         }
@@ -210,21 +210,21 @@ export default async function OverviewPage() {
                 done={connected}
                 title="Conectar o Instagram"
                 text="Autorize a sua conta profissional."
-                href="/configuracoes"
+                href="/dashboard/configuracoes"
                 cta="Conectar"
               />
               <Step
                 done={s.activeTriggers > 0}
                 title="Criar uma automação"
                 text="Escolha um Reel e a palavra-chave."
-                href="/automacoes"
+                href="/dashboard/automacoes"
                 cta="Criar"
               />
               <Step
                 done={s.dmSent > 0}
                 title="Receber o primeiro comentário"
                 text="Comente o post com a palavra e veja a DM chegar."
-                href="/reels"
+                href="/dashboard/reels"
                 cta="Ver posts"
               />
             </div>
@@ -318,7 +318,7 @@ export default async function OverviewPage() {
           <Panel
             className="xl:col-span-2"
             title="Comentários recentes"
-            action={<PanelLink href="/automacoes">ver automações</PanelLink>}
+            action={<PanelLink href="/dashboard/automacoes">ver automações</PanelLink>}
             flush
           >
             {s.recent.length === 0 ? (
@@ -344,11 +344,11 @@ export default async function OverviewPage() {
             )}
           </Panel>
 
-          <Panel title="Automações no ar" action={<PanelLink href="/automacoes">gerenciar</PanelLink>} flush>
+          <Panel title="Automações no ar" action={<PanelLink href="/dashboard/automacoes">gerenciar</PanelLink>} flush>
             {s.live.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <p className="text-sm text-[var(--fg-dim)]">Nenhuma automação ligada.</p>
-                <Link href="/automacoes" className="btn btn-ghost mt-3">
+                <Link href="/dashboard/automacoes" className="btn btn-ghost mt-3">
                   Criar a primeira
                 </Link>
               </div>

@@ -27,33 +27,33 @@ const NAV = [
   {
     group: "Operação",
     items: [
-      { href: "/", label: "Visão geral", icon: LayoutDashboard },
-      { href: "/automacoes", label: "Automações", icon: MessageSquareShare },
-      { href: "/fluxos", label: "Fluxos", icon: Workflow },
-      { href: "/inbox", label: "Inbox", icon: Inbox },
+      { href: "/dashboard", label: "Visão geral", icon: LayoutDashboard },
+      { href: "/dashboard/automacoes", label: "Automações", icon: MessageSquareShare },
+      { href: "/dashboard/fluxos", label: "Fluxos", icon: Workflow },
+      { href: "/dashboard/inbox", label: "Inbox", icon: Inbox },
     ],
   },
   {
     group: "Conteúdo",
     items: [
-      { href: "/reels", label: "Reels", icon: Clapperboard },
-      { href: "/carrossel", label: "Carrosséis", icon: LayoutGrid, adminOnly: true },
-      { href: "/catalogo", label: "Catálogo", icon: ShoppingBag },
-      { href: "/duvidas", label: "Dúvidas", icon: HelpCircle },
+      { href: "/dashboard/reels", label: "Reels", icon: Clapperboard },
+      { href: "/dashboard/carrossel", label: "Carrosséis", icon: LayoutGrid, adminOnly: true },
+      { href: "/dashboard/catalogo", label: "Catálogo", icon: ShoppingBag },
+      { href: "/dashboard/duvidas", label: "Dúvidas", icon: HelpCircle },
     ],
   },
   {
     group: "Análise",
     items: [
-      { href: "/desempenho", label: "Desempenho", icon: TrendingUp },
-      { href: "/contatos", label: "Contatos", icon: Contact },
+      { href: "/dashboard/desempenho", label: "Desempenho", icon: TrendingUp },
+      { href: "/dashboard/contatos", label: "Contatos", icon: Contact },
     ],
   },
   {
     group: "Sistema",
     items: [
-      { href: "/testes-api", label: "Testes de API", icon: FlaskConical, adminOnly: true },
-      { href: "/configuracoes", label: "Configurações", icon: Settings },
+      { href: "/dashboard/testes-api", label: "Testes de API", icon: FlaskConical, adminOnly: true },
+      { href: "/dashboard/configuracoes", label: "Configurações", icon: Settings },
     ],
   },
 ];
@@ -76,11 +76,11 @@ export function Sidebar({
   }
 
   // No editor de fluxo o canvas precisa de toda a largura: o menu vira uma faixa de icones.
-  if (/^\/fluxos\/[^/]+/.test(pathname)) {
+  if (/^\/dashboard\/fluxos\/[^/]+/.test(pathname)) {
     return (
       <aside className="flex w-[60px] shrink-0 flex-col items-center border-r border-[var(--border)] bg-[var(--bg-sidebar)] py-4">
         <Link
-          href="/"
+          href="/dashboard"
           title="Fluxo"
           className="grid h-9 w-9 place-items-center rounded-xl text-[15px] font-bold text-white"
           style={{ background: "var(--brand)", boxShadow: "0 8px 22px -8px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.25)" }}
@@ -92,7 +92,7 @@ export function Sidebar({
           {NAV.flatMap((g) => g.items)
             .filter((item) => isAdmin || !("adminOnly" in item && item.adminOnly))
             .map(({ href, label, icon: Icon }) => {
-              const active = href === "/fluxos";
+              const active = href === "/dashboard/fluxos";
               return (
                 <Link
                   key={href}
@@ -153,7 +153,7 @@ export function Sidebar({
             <p className="nav-group">{group}</p>
             <div className="space-y-0.5">
               {items.map(({ href, label, icon: Icon }) => {
-                const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+                const active = href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
                 return (
                   <Link
                     key={href}

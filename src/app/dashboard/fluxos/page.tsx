@@ -62,7 +62,7 @@ export default function FluxosPage() {
     });
 
     if (ok && data?.flow?.id) {
-      router.push(`/fluxos/${data.flow.id}`);
+      router.push(`/dashboard/fluxos/${data.flow.id}`);
     } else {
       setError(err ?? "Não consegui criar o fluxo.");
       setCreating(false);
@@ -180,7 +180,7 @@ function MiniFlow({ blocks }: { blocks: number }) {
 function FlowCard({ flow: f }: { flow: Flow }) {
   const blocks = f.nodes?.length ?? 0;
   return (
-    <Link href={`/fluxos/${f.id}`} className="card card-hover flex flex-col gap-4 p-4">
+    <Link href={`/dashboard/fluxos/${f.id}`} className="card card-hover flex flex-col gap-4 p-4">
       <div className="flex items-start gap-3">
         <span
           className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white"

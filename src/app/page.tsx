@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Check, MessageSquareShare, ShieldCheck, Sparkles, Workflow } from "lucide-react";
 import { HIGHLIGHT_PLAN, PLANS, type PlanSlug } from "@/lib/billing/plans";
+import { currentSession } from "@/lib/account-context";
 
 export const metadata: Metadata = {
   title: "Fluxo — comentário vira DM, no automático",
@@ -61,7 +62,10 @@ const FAQ = [
   },
 ];
 
-export default function PlanosPage() {
+export default async function HomePage() {
+  // Quem ja esta logado ve "Ir para o painel" no lugar de "Entrar".
+  const loggedIn = Boolean(await currentSession());
+
   return (
     <div className="ambient min-h-screen">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
@@ -74,9 +78,15 @@ export default function PlanosPage() {
           </div>
           <span className="font-semibold tracking-tight">Fluxo</span>
         </div>
-        <Link href="/login" className="btn btn-ghost">
-          Entrar
-        </Link>
+        {loggedIn ? (
+          <Link href="/dashboard" className="btn btn-primary">
+            Ir para o painel
+          </Link>
+        ) : (
+          <Link href="/login" className="btn btn-ghost">
+            Entrar
+          </Link>
+        )}
       </header>
 
       <main className="mx-auto max-w-6xl px-5 pb-24">
@@ -107,8 +117,8 @@ export default function PlanosPage() {
             <a href="#planos" className="btn btn-primary">
               Ver planos
             </a>
-            <Link href="/login" className="btn btn-ghost">
-              Já sou cliente
+            <Link href={loggedIn ? "/dashboard" : "/login"} className="btn btn-ghost">
+              {loggedIn ? "Ir para o painel" : "Já sou cliente"}
             </Link>
           </div>
         </section>

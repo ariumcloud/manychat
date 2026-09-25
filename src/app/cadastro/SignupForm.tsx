@@ -33,7 +33,7 @@ export function SignupForm({ needsCode, plan }: { needsCode: boolean; plan: stri
         return;
       }
       // Conta nova: o primeiro passo e conectar o Instagram.
-      router.push("/configuracoes");
+      router.push("/dashboard/configuracoes");
       router.refresh();
     } else {
       const body = await res.json().catch(() => ({}));

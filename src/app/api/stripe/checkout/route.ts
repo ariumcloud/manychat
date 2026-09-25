@@ -21,7 +21,7 @@ const ACTIVE = new Set(["active", "trialing", "past_due"]);
 export async function GET(req: Request) {
   const origin = publicOrigin(req);
   const back = (status: string) =>
-    NextResponse.redirect(`${origin}/configuracoes?assinatura=${status}`, 303);
+    NextResponse.redirect(`${origin}/dashboard/configuracoes?assinatura=${status}`, 303);
 
   const plan = new URL(req.url).searchParams.get("plan");
   if (!isPlanSlug(plan)) return back("plano-invalido");
@@ -52,8 +52,8 @@ export async function GET(req: Request) {
       : account.login?.includes("@")
         ? { customer_email: account.login }
         : {}),
-    success_url: `${origin}/configuracoes?assinatura=ok`,
-    cancel_url: `${origin}/configuracoes?assinatura=cancelada`,
+    success_url: `${origin}/dashboard/configuracoes?assinatura=ok`,
+    cancel_url: `${origin}/dashboard/configuracoes?assinatura=cancelada`,
   });
 
   if (!session.url) return back("erro");
