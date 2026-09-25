@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { getAccountCached, type Account } from "@/lib/repo";
+import { currentSession } from "@/lib/account-context";
 
 /** Abaixo disto o aviso de token aparece em todas as telas. */
 const TOKEN_WARN_DAYS = 10;
@@ -9,10 +10,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Se o Supabase ainda nao esta configurado, o painel continua abrindo:
   // a tela de Configuracoes explica o que falta.
   const account = await getAccountCached().catch(() => null);
+  const session = await currentSession();
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar account={account} />
+      <Sidebar account={account} isAdmin={session?.role === "admin"} />
       <main className="ambient flex-1 overflow-y-auto bg-[var(--bg)]">
         <TokenWarning account={account} />
         {children}

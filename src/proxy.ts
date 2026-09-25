@@ -5,6 +5,15 @@ import { SESSION_COOKIE, readSession } from "@/lib/auth";
  * Protege o painel inteiro. O webhook fica de fora de proposito: ele e chamado
  * pelo Meta e ja se autentica pela assinatura HMAC do corpo.
  */
+/**
+ * Ferramentas internas do dono: o cliente nao ve no menu E nao abre pela URL.
+ * O papel vem do cookie de sessao assinado, entao nao da para forjar.
+ */
+const ADMIN_ONLY = ["/carrossel", "/testes-api", "/api/carousels", "/api/meta-tests", "/api/test-send"];
+
+const isAdminOnly = (pathname: string) =>
+  ADMIN_ONLY.some((base) => pathname === base || pathname.startsWith(`${base}/`));
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -32,7 +41,15 @@ export async function proxy(req: NextRequest) {
   }
 
   const session = await readSession(req.cookies.get(SESSION_COOKIE)?.value, secret);
-  if (session) return NextResponse.next();
+  if (session) {
+    if (session.role !== "admin" && isAdminOnly(pathname)) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Recurso indisponível para o seu plano." }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+    return NextResponse.next();
+  }
 
   const url = req.nextUrl.clone();
   url.pathname = "/login";

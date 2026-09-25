@@ -128,7 +128,7 @@ export default function CatalogPage() {
         }
       />
 
-      <div className="grid gap-6 p-8 lg:grid-cols-[1fr_360px]">
+      <div className="mx-auto grid w-full max-w-[1440px] gap-4 px-6 py-5 lg:grid-cols-[1fr_360px]">
         <section>
           {loading ? (
             <p className="flex items-center gap-2 text-sm text-[var(--fg-dim)]">

@@ -37,7 +37,7 @@ const NAV = [
     group: "Conteúdo",
     items: [
       { href: "/reels", label: "Reels", icon: Clapperboard },
-      { href: "/carrossel", label: "Carrosséis", icon: LayoutGrid },
+      { href: "/carrossel", label: "Carrosséis", icon: LayoutGrid, adminOnly: true },
       { href: "/catalogo", label: "Catálogo", icon: ShoppingBag },
       { href: "/duvidas", label: "Dúvidas", icon: HelpCircle },
     ],
@@ -52,7 +52,7 @@ const NAV = [
   {
     group: "Sistema",
     items: [
-      { href: "/testes-api", label: "Testes de API", icon: FlaskConical },
+      { href: "/testes-api", label: "Testes de API", icon: FlaskConical, adminOnly: true },
       { href: "/configuracoes", label: "Configurações", icon: Settings },
     ],
   },
@@ -60,8 +60,11 @@ const NAV = [
 
 export function Sidebar({
   account,
+  isAdmin,
 }: {
   account: { username: string | null; profile_picture_url: string | null } | null;
+  /** Só o dono vê as ferramentas internas (ver ADMIN_ONLY em proxy.ts). */
+  isAdmin: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -92,7 +95,10 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pb-2">
-        {NAV.map(({ group, items }) => (
+        {NAV.map(({ group, items: all }) => {
+          const items = all.filter((item) => isAdmin || !("adminOnly" in item && item.adminOnly));
+          if (!items.length) return null;
+          return (
           <div key={group} className="mb-4 last:mb-0">
             <p className="nav-group">{group}</p>
             <div className="space-y-0.5">
@@ -116,7 +122,8 @@ export function Sidebar({
               })}
             </div>
           </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Conta */}

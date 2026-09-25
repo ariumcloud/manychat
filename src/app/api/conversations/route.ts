@@ -10,7 +10,7 @@ async function getHandler() {
   const account = await getAccount();
   const { data, error } = await db()
     .from("mc_conversations")
-    .select("*, contacts:mc_contacts(id, igsid, username, name, profile_picture_url)")
+    .select("*, contacts:mc_contacts(id, igsid, username, name, profile_picture_url, follower_count, is_user_follow_business, is_verified)")
     .eq("account_id", account.id)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(100);

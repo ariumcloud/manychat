@@ -13,7 +13,7 @@ async function getHandler(req: Request) {
 
   let query = db()
     .from("mc_triggers")
-    .select("*, flows:mc_flows(id, name, status)")
+    .select("*, flows:mc_flows(id, name, status, sent_count)")
     .eq("account_id", account.id)
     .order("created_at", { ascending: false });
 
@@ -47,7 +47,7 @@ async function postHandler(req: Request) {
       public_reply_texts: withDefaultReplies((body.public_reply_texts as string[] | undefined) ?? []),
       only_first_time: body.only_first_time ?? false,
     })
-    .select("*, flows:mc_flows(id, name, status)")
+    .select("*, flows:mc_flows(id, name, status, sent_count)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
