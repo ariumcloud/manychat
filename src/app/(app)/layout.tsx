@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { getAccountCached, type Account } from "@/lib/repo";
+import { currentSession } from "@/lib/account-context";
+import { getUsage } from "@/lib/billing/usage";
+import { decideAccess } from "@/lib/billing/access";
 
 /** Abaixo disto o aviso de token aparece em todas as telas. */
 const TOKEN_WARN_DAYS = 10;
@@ -9,12 +12,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Se o Supabase ainda nao esta configurado, o painel continua abrindo:
   // a tela de Configuracoes explica o que falta.
   const account = await getAccountCached().catch(() => null);
+  const session = await currentSession();
+  // Plano vencido ou limite estourado: avisa em todas as telas, senao o cliente
+  // so descobre quando as DMs param de sair.
+  const usage = account?.plan ? await getUsage(account.id).catch(() => null) : null;
+  const access = account && usage ? decideAccess(account, usage.used) : null;
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar account={account} />
+      <Sidebar account={account} isAdmin={session?.role === "admin"} />
       <main className="ambient flex-1 overflow-y-auto bg-[var(--bg)]">
         <TokenWarning account={account} />
+        {access && !access.allowed && (
+          <Link
+            href="/configuracoes"
+            className="block bg-[color-mix(in_srgb,var(--danger)_16%,transparent)] px-8 py-2.5 text-sm text-[var(--danger)]"
+          >
+            {access.reason} Ver assinatura.
+          </Link>
+        )}
         {children}
       </main>
     </div>

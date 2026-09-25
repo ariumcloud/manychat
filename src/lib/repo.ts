@@ -1,6 +1,7 @@
 import { db } from "./supabase";
 import { getMe, getUserProfile } from "./meta/client";
 import { currentAccountId, requireAccountId } from "./account-context";
+import { bumpUsage } from "./billing/usage";
 
 /** Janela do Meta: depois de 24h sem mensagem do usuario, nao da pra responder livremente. */
 export const WINDOW_HOURS = 24;
@@ -13,6 +14,9 @@ export type Account = {
   profile_picture_url: string | null;
   followers_count: number | null;
   ig_token_expires_at: string | null;
+  plan: string | null;
+  subscription_status: string | null;
+  current_period_end: string | null;
 };
 
 /**
@@ -21,7 +25,7 @@ export type Account = {
  * cliente (Sidebar) e em respostas de API. O token so e lido em meta/token.ts.
  */
 const ACCOUNT_COLUMNS =
-  "id, ig_user_id, username, name, profile_picture_url, followers_count, ig_token_expires_at";
+  "id, ig_user_id, username, name, profile_picture_url, followers_count, ig_token_expires_at, plan, subscription_status, current_period_end";
 
 const accountCache = new Map<string, { value: Account; at: number }>();
 
@@ -256,6 +260,12 @@ export async function recordMessage(input: RecordMessageInput) {
   if (error) {
     if (error.code === "23505") return null;
     throw new Error(`Falha ao gravar mensagem: ${error.message}`);
+  }
+
+  // So o que a automacao enviou conta para o limite do plano: resposta manual
+  // do painel e mensagem recebida nao.
+  if (input.direction === "out" && input.sender === "bot" && (input.status ?? "sent") === "sent") {
+    await bumpUsage(input.accountId);
   }
 
   const patch: Record<string, unknown> = {

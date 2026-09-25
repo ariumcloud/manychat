@@ -1,4 +1,5 @@
 import { db } from "../supabase";
+import { checkAccess } from "../billing/usage";
 import {
   getOrCreateConversation,
   recordMessage,
@@ -210,6 +211,11 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     }
     return { ok: status === "done", steps, igsid, error } satisfies RunResult;
   };
+
+  // Plano vencido ou limite do mes estourado: o fluxo nem comeca. Fica no
+  // historico de execucoes com o motivo, para o dono ver por que nao saiu.
+  const access = await checkAccess(ctx.accountId);
+  if (!access.allowed) return finish("failed", access.reason);
 
   const ensureConversation = async () => {
     if (conversationId) return conversationId;

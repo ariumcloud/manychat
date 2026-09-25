@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
-export function SignupForm({ needsCode }: { needsCode: boolean }) {
+export function SignupForm({ needsCode, plan }: { needsCode: boolean; plan: string | null }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,6 +25,13 @@ export function SignupForm({ needsCode }: { needsCode: boolean }) {
     });
 
     if (res.ok) {
+      if (plan) {
+        // Veio de um plano: segue direto para o pagamento. E rota de API que
+        // redireciona para a Stripe, entao precisa de navegacao completa.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- rota de API que sai do app
+        window.location.assign(`/api/stripe/checkout?plan=${encodeURIComponent(plan)}`);
+        return;
+      }
       // Conta nova: o primeiro passo e conectar o Instagram.
       router.push("/configuracoes");
       router.refresh();
@@ -110,7 +117,10 @@ export function SignupForm({ needsCode }: { needsCode: boolean }) {
 
       <p className="mt-4 text-center text-xs text-[var(--fg-muted)]">
         Já tem conta?{" "}
-        <Link href="/login" className="text-[var(--accent)] hover:underline">
+        <Link
+          href={plan ? `/login?next=${encodeURIComponent(`/api/stripe/checkout?plan=${plan}`)}` : "/login"}
+          className="text-[var(--accent)] hover:underline"
+        >
           Entrar
         </Link>
       </p>

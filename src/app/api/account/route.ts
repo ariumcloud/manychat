@@ -5,6 +5,9 @@ import { inspectToken, metaConfig, MetaError } from "@/lib/meta/client";
 import { withApi } from "@/lib/api";
 import { currentSession } from "@/lib/account-context";
 import { PENDING_PREFIX } from "@/lib/meta/token";
+import { getUsage } from "@/lib/billing/usage";
+import { PLANS, isPlanSlug, priceIdFor, type PlanSlug } from "@/lib/billing/plans";
+import { stripeConfigured } from "@/lib/billing/stripe";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,10 +29,27 @@ async function getHandler(req: Request) {
   const connected = Boolean(account) && !account!.ig_user_id.startsWith(PENDING_PREFIX);
   const token = connected ? await inspectToken() : null;
 
+  const plan = account?.plan && isPlanSlug(account.plan) ? account.plan : null;
+  const usage = account ? await getUsage(account.id).catch(() => null) : null;
+  const billing = {
+    // Checkout so liga quando a Stripe e os precos estao configurados.
+    ready: stripeConfigured(),
+    plan,
+    planName: plan ? PLANS[plan].name : null,
+    status: account?.subscription_status ?? null,
+    periodEnd: account?.current_period_end ?? null,
+    used: usage?.used ?? 0,
+    limit: plan ? PLANS[plan].messages : null,
+    available: (Object.keys(PLANS) as PlanSlug[])
+      .filter((slug) => priceIdFor(slug))
+      .map((slug) => ({ slug, name: PLANS[slug].name, price: PLANS[slug].price })),
+  };
+
   return NextResponse.json({
     config,
     account,
     role: session?.role ?? null,
+    billing,
     connected,
     token,
     meta: metaConfig,

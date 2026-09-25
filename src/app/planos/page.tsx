@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Check, MessageSquareShare, ShieldCheck, Sparkles, Workflow } from "lucide-react";
+import { HIGHLIGHT_PLAN, PLANS, type PlanSlug } from "@/lib/billing/plans";
 
 export const metadata: Metadata = {
   title: "Fluxo — comentário vira DM, no automático",
@@ -8,43 +9,26 @@ export const metadata: Metadata = {
     "Automação de Instagram: quando alguém comenta a palavra-chave, a DM sai sozinha. A partir de R$ 39,90 por mês.",
 };
 
-/**
- * Para onde vão os botões "Quero assinar". Defina NEXT_PUBLIC_CONTACT_URL com o
- * link do seu WhatsApp (ex.: https://wa.me/55DDDNUMERO?text=Quero%20assinar).
- * Sem ela os botões levam ao login.
- */
-const CONTACT_URL = process.env.NEXT_PUBLIC_CONTACT_URL || "/login";
+/** Cada botão leva ao cadastro já com o plano escolhido; depois de criar a conta, o cliente cai no pagamento. */
+const signupHref = (slug: string) => `/cadastro?plano=${slug}`;
 
-/**
- * Para vender so 3 planos, apague o objeto do plano que sair: a grade se ajusta
- * sozinha. So um plano pode ter `highlight: true`.
- */
-const PLANS = [
-  {
-    name: "Essencial",
-    price: "39,90",
-    volume: "Até 2.500 mensagens por mês",
-    blurb: "Para começar a automatizar o Instagram.",
-    highlight: false,
-  },
-  {
-    name: "Pro",
-    price: "97",
-    volume: "Até 10.000 mensagens por mês",
-    blurb: "Para quem vende com Reels e comentários todo dia.",
-    highlight: true,
-  },
-  {
-    name: "Ilimitado",
-    price: "197",
-    volume: "Mensagens ilimitadas (uso justo)",
-    blurb: "Para perfis grandes, sem contar mensagem.",
-    highlight: false,
-  },
-];
+const PLAN_LIST = (Object.keys(PLANS) as PlanSlug[]).map((slug) => {
+  const plan = PLANS[slug];
+  return {
+    slug,
+    name: plan.name,
+    price: plan.price,
+    volume:
+      plan.messages === null
+        ? "Mensagens ilimitadas (uso justo)"
+        : `Até ${plan.messages.toLocaleString("pt-BR")} mensagens por mês`,
+    blurb: plan.blurb,
+    highlight: slug === HIGHLIGHT_PLAN,
+  };
+});
 
-// Classes escritas por extenso: o Tailwind so gera o que le no codigo.
-const PLAN_GRID = PLANS.length <= 3 ? "md:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4";
+// Classes escritas por extenso: o Tailwind só gera o que lê no código.
+const PLAN_GRID = PLAN_LIST.length <= 3 ? "md:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4";
 
 const INCLUDED = [
   "Automações de comentário → DM por palavra-chave",
@@ -120,12 +104,12 @@ export default function PlanosPage() {
             o Fluxo responde no comentário e manda o link na DM, 24 horas por dia.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <a href={CONTACT_URL} className="btn btn-primary">
-              Quero assinar
-            </a>
-            <a href="#planos" className="btn btn-ghost">
+            <a href="#planos" className="btn btn-primary">
               Ver planos
             </a>
+            <Link href="/login" className="btn btn-ghost">
+              Já sou cliente
+            </Link>
           </div>
         </section>
 
@@ -150,9 +134,9 @@ export default function PlanosPage() {
           </div>
 
           <div className={`mt-8 grid gap-4 ${PLAN_GRID}`}>
-            {PLANS.map((plan) => (
+            {PLAN_LIST.map((plan) => (
               <div
-                key={plan.name}
+                key={plan.slug}
                 className="card relative flex flex-col p-6"
                 style={plan.highlight ? { borderColor: "var(--accent)", boxShadow: "var(--shadow-lg)" } : undefined}
               >
@@ -168,7 +152,7 @@ export default function PlanosPage() {
                 <p className="mt-3 text-sm font-medium">{plan.volume}</p>
                 <p className="mb-6 mt-1 text-sm text-[var(--fg-muted)]">{plan.blurb}</p>
                 <a
-                  href={CONTACT_URL}
+                  href={signupHref(plan.slug)}
                   className={`btn mt-auto w-full ${plan.highlight ? "btn-primary" : "btn-ghost"}`}
                 >
                   Quero assinar
@@ -218,8 +202,8 @@ export default function PlanosPage() {
         {/* Fechamento */}
         <section className="pt-20 text-center">
           <h2 className="text-2xl font-semibold tracking-tight">Pronto para automatizar?</h2>
-          <a href={CONTACT_URL} className="btn btn-primary mt-6">
-            Quero assinar
+          <a href="#planos" className="btn btn-primary mt-6">
+            Escolher meu plano
           </a>
         </section>
       </main>

@@ -1,8 +1,17 @@
+import { isPlanSlug } from "@/lib/billing/plans";
 import { SignupForm } from "./SignupForm";
 
 export const metadata = { title: "Criar conta — Fluxo" };
 
-export default function CadastroPage() {
+export default async function CadastroPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plano?: string }>;
+}) {
+  const { plano } = await searchParams;
+  // Plano vindo da página de vendas; valor desconhecido é ignorado.
+  const plan = isPlanSlug(plano) ? plano : null;
+
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden p-6">
       <div
@@ -17,7 +26,7 @@ export default function CadastroPage() {
       />
       <div className="relative">
         {/* Lido no servidor: o campo do código só aparece se ele for exigido. */}
-        <SignupForm needsCode={Boolean(process.env.SIGNUP_CODE?.trim())} />
+        <SignupForm needsCode={Boolean(process.env.SIGNUP_CODE?.trim())} plan={plan} />
         <p className="mt-6 text-center text-xs text-[var(--fg-dim)]">Fluxo · Instagram no automático</p>
       </div>
     </main>

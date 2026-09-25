@@ -26,7 +26,14 @@ function LoginForm() {
     });
 
     if (res.ok) {
-      router.push(params.get("next") || "/");
+      const next = params.get("next") || "/";
+      // Rotas de API (ex.: checkout da Stripe) redirecionam para fora do app:
+      // precisam de navegacao completa, o roteador do Next nao segue.
+      if (next.startsWith("/api/")) {
+        window.location.assign(next);
+        return;
+      }
+      router.push(next);
       router.refresh();
     } else {
       const body = await res.json().catch(() => ({}));
