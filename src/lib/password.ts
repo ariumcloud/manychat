@@ -15,3 +15,10 @@ export function verifyPassword(password: string, stored: string | null | undefin
   const actual = crypto.scryptSync(password, Buffer.from(saltHex, "hex"), expected.length);
   return crypto.timingSafeEqual(expected, actual);
 }
+
+/** Compara dois segredos em tempo constante (hash antes, para tamanhos diferentes nao vazarem). */
+export function sameSecret(a: string, b: string): boolean {
+  const ha = crypto.createHash("sha256").update(a).digest();
+  const hb = crypto.createHash("sha256").update(b).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}

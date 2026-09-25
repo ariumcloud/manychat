@@ -67,11 +67,11 @@ function LoginForm() {
         id="login"
         type="text"
         autoFocus
-        autoComplete="username"
+        autoComplete="off"
         className="input mb-4"
         value={login}
         onChange={(e) => setLogin(e.target.value)}
-        placeholder="voce@email.com"
+        placeholder="deixe vazio se for o dono"
       />
 
       <label className="label" htmlFor="password">

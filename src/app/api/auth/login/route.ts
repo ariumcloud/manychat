@@ -3,6 +3,7 @@ import { createSessionValue, SESSION_COOKIE, sessionCookieOptions, type Session 
 import { db } from "@/lib/supabase";
 import { verifyPassword } from "@/lib/password";
 import { checkLoginRate } from "@/lib/login-rate";
+import { sameSecret } from "@/lib/password";
 
 export const runtime = "nodejs";
 
@@ -35,18 +36,8 @@ export async function POST(req: Request) {
 
   let session: Session | null = null;
 
-  if (!name) {
-    // Dono: senha do .env. Abre a conta mais antiga; troca de conta em Configuracoes.
-    if (password === adminPassword) {
-      const { data } = await db()
-        .from("mc_accounts")
-        .select("id")
-        .order("connected_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (data) session = { accountId: data.id, role: "admin" };
-    }
-  } else {
+  // Cliente: login (e-mail) + senha propria.
+  if (name) {
     // Logins sao gravados em minusculas (api/admin/clients).
     const { data } = await db()
       .from("mc_accounts")
@@ -56,6 +47,19 @@ export async function POST(req: Request) {
     if (data && verifyPassword(password, data.password_hash)) {
       session = { accountId: data.id, role: "client" };
     }
+  }
+
+  // Dono: a senha do .env vale SEMPRE, com o campo de login vazio ou nao. Assim
+  // um e-mail preenchido sozinho pelo navegador nao trava o acesso do dono. Abre
+  // a conta mais antiga; troca de conta em Configuracoes.
+  if (!session && sameSecret(password, adminPassword)) {
+    const { data } = await db()
+      .from("mc_accounts")
+      .select("id")
+      .order("connected_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (data) session = { accountId: data.id, role: "admin" };
   }
 
   if (!session) return NextResponse.json({ error: INVALID }, { status: 401 });
