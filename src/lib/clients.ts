@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { db } from "./supabase";
+import { FREE_PLAN } from "./billing/plans";
 import { hashPassword } from "./password";
 import { PENDING_PREFIX } from "./meta/token";
 
@@ -40,6 +41,8 @@ export async function createClientAccount(input: {
       ig_user_id: `${PENDING_PREFIX}${crypto.randomUUID()}`,
       login,
       password_hash: hashPassword(input.password),
+      // Quem cria conta sem assinar cai no plano gratis (500 mensagens/mes).
+      plan: FREE_PLAN.slug,
       name: input.name?.trim() || null,
     })
     .select("id, login")

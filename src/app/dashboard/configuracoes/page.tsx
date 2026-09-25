@@ -28,6 +28,7 @@ type Billing = {
   used: number;
   limit: number | null;
   available: Array<{ slug: string; name: string; price: string }>;
+  free: boolean;
 };
 
 type AccountInfo = {
@@ -124,7 +125,9 @@ function BillingSection({ billing }: { billing: Billing }) {
     );
   }
 
-  const status = STATUS_LABELS[billing.status ?? ""] ?? { label: billing.status ?? "—", ok: false };
+  const status = billing.free
+    ? { label: "sem assinatura", ok: true }
+    : (STATUS_LABELS[billing.status ?? ""] ?? { label: billing.status ?? "—", ok: false });
   const pct = billing.limit ? Math.min(100, Math.round((billing.used / billing.limit) * 100)) : 0;
 
   return (
@@ -132,7 +135,7 @@ function BillingSection({ billing }: { billing: Billing }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-sm font-semibold">
-            Assinatura · {billing.planName}{" "}
+            {billing.free ? "Plano" : "Assinatura"} · {billing.planName}{" "}
             <span className={`chip ml-1 ${status.ok ? "chip-ok" : "chip-danger"}`}>{status.label}</span>
           </h2>
           {billing.periodEnd && (
@@ -141,10 +144,12 @@ function BillingSection({ billing }: { billing: Billing }) {
             </p>
           )}
         </div>
-        <button className="btn btn-ghost shrink-0" onClick={openPortal} disabled={opening}>
-          {opening && <Loader2 size={14} className="animate-spin" />}
-          Gerenciar assinatura
-        </button>
+        {!billing.free && (
+          <button className="btn btn-ghost shrink-0" onClick={openPortal} disabled={opening}>
+            {opening && <Loader2 size={14} className="animate-spin" />}
+            Gerenciar assinatura
+          </button>
+        )}
       </div>
 
       <div className="mt-4">
@@ -167,6 +172,18 @@ function BillingSection({ billing }: { billing: Billing }) {
           </div>
         )}
       </div>
+      {billing.free && billing.ready && billing.available.length > 0 && (
+        <div className="mt-4 border-t border-[var(--border)] pt-4">
+          <p className="text-sm text-[var(--fg-muted)]">Precisa de mais mensagens? Assine um plano.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {billing.available.map((p) => (
+              <a key={p.slug} href={`/api/stripe/checkout?plan=${p.slug}`} className="btn btn-ghost">
+                {p.name} · R$ {p.price}/mês
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
       {error && <p className="mt-3 text-sm text-[var(--danger)]">{error}</p>}
     </section>
   );

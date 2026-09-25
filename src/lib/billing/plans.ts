@@ -35,6 +35,16 @@ export const PLANS = {
   { name: string; price: string; messages: number | null; blurb: string; priceEnv: string }
 >;
 
+/**
+ * Plano gratuito: nao e vendido (fica fora de PLANS, da pagina e da Stripe).
+ * E o plano de quem cria conta sem assinar; sem cartao, 500 mensagens por mes.
+ */
+export const FREE_PLAN = { slug: "free", name: "Grátis", messages: 500 } as const;
+
+export function isFreePlan(value: unknown): boolean {
+  return value === FREE_PLAN.slug;
+}
+
 /** Plano que a pagina de vendas destaca como "Mais escolhido". */
 export const HIGHLIGHT_PLAN: PlanSlug = "pro";
 
