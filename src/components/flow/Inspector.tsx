@@ -5,21 +5,20 @@ import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
 import type { FlowButton, FlowNode, FlowNodeData } from "@/lib/flow/types";
 import { CATALOG_LIMITS } from "@/lib/catalog";
 import { useCatalog } from "./catalog-context";
+import { KIND_META } from "./meta";
 
 type Props = {
   node: FlowNode | null;
+  /** O que mostrar quando nenhum bloco esta selecionado (resumo do fluxo). */
+  empty: React.ReactNode;
   onChange: (data: Partial<FlowNodeData>) => void;
   onDelete: () => void;
 };
 
-export function Inspector({ node, onChange, onDelete }: Props) {
+export function Inspector({ node, empty, onChange, onDelete }: Props) {
   if (!node) {
     return (
-      <aside className="w-72 shrink-0 border-l border-[var(--border)] bg-[var(--bg-elev)] p-5">
-        <p className="text-sm text-[var(--fg-dim)]">
-          Clique num bloco pra editar o conteúdo dele.
-        </p>
-      </aside>
+      <aside className="w-[320px] shrink-0 border-l border-[var(--border)] bg-[var(--bg-elev)]">{empty}</aside>
     );
   }
 
@@ -32,9 +31,25 @@ export function Inspector({ node, onChange, onDelete }: Props) {
   }
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col border-l border-[var(--border)] bg-[var(--bg-elev)]">
-      <div className="border-b border-[var(--border)] px-5 py-4">
-        <h2 className="text-sm font-semibold capitalize">{node.type}</h2>
+    <aside className="flex w-[320px] shrink-0 flex-col border-l border-[var(--border)] bg-[var(--bg-elev)]">
+      <div className="flex items-center gap-3 border-b border-[var(--border)] px-5 py-4">
+        {(() => {
+          const { label, hint, icon: Icon, color } = KIND_META[node.type];
+          return (
+            <>
+              <span
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-xl"
+                style={{ background: `color-mix(in srgb, ${color} 18%, transparent)`, color }}
+              >
+                <Icon size={16} />
+              </span>
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold leading-tight">{label}</h2>
+                <p className="truncate text-[11px] text-[var(--fg-dim)]">{hint}</p>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">

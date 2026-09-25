@@ -75,6 +75,56 @@ export function Sidebar({
     router.refresh();
   }
 
+  // No editor de fluxo o canvas precisa de toda a largura: o menu vira uma faixa de icones.
+  if (/^\/fluxos\/[^/]+/.test(pathname)) {
+    return (
+      <aside className="flex w-[60px] shrink-0 flex-col items-center border-r border-[var(--border)] bg-[var(--bg-sidebar)] py-4">
+        <Link
+          href="/"
+          title="Fluxo"
+          className="grid h-9 w-9 place-items-center rounded-xl text-[15px] font-bold text-white"
+          style={{ background: "var(--brand)", boxShadow: "0 8px 22px -8px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.25)" }}
+        >
+          F
+        </Link>
+
+        <nav className="mt-5 flex flex-1 flex-col items-center gap-1 overflow-y-auto">
+          {NAV.flatMap((g) => g.items)
+            .filter((item) => isAdmin || !("adminOnly" in item && item.adminOnly))
+            .map(({ href, label, icon: Icon }) => {
+              const active = href === "/fluxos";
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  title={label}
+                  aria-label={label}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "grid h-9 w-9 place-items-center rounded-xl transition-colors",
+                    active
+                      ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                      : "text-[var(--fg-dim)] hover:bg-[rgba(255,255,255,0.05)] hover:text-[var(--fg)]",
+                  )}
+                >
+                  <Icon size={17} strokeWidth={active ? 2.2 : 1.8} />
+                </Link>
+              );
+            })}
+        </nav>
+
+        <button
+          onClick={logout}
+          title="Sair"
+          aria-label="Sair"
+          className="grid h-9 w-9 place-items-center rounded-xl text-[var(--fg-dim)] transition-colors hover:bg-[var(--bg-elev-2)] hover:text-[var(--fg)]"
+        >
+          <LogOut size={16} />
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="flex w-[248px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)]">
       {/* Marca */}
