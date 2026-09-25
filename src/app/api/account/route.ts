@@ -42,6 +42,18 @@ async function getHandler(req: Request) {
     periodEnd: account?.current_period_end ?? null,
     used: usage?.used ?? 0,
     limit: free ? FREE_PLAN.messages : plan ? PLANS[plan].messages : null,
+    // Vitrine da aba Plano: todos os planos, mesmo os sem preco na Stripe (o botao some, o card fica).
+    plans: [
+      { slug: FREE_PLAN.slug, name: FREE_PLAN.name, price: "0", messages: FREE_PLAN.messages as number | null, blurb: "Para testar sem cartão." },
+      ...(Object.keys(PLANS) as PlanSlug[]).map((slug) => ({
+        slug,
+        name: PLANS[slug].name,
+        price: PLANS[slug].price,
+        messages: PLANS[slug].messages as number | null,
+        blurb: PLANS[slug].blurb,
+        purchasable: Boolean(priceIdFor(slug)),
+      })),
+    ],
     available: (Object.keys(PLANS) as PlanSlug[])
       .filter((slug) => priceIdFor(slug))
       .map((slug) => ({ slug, name: PLANS[slug].name, price: PLANS[slug].price })),

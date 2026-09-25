@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   LogOut,
   MessageSquareShare,
+  CreditCard,
   ShoppingBag,
   Settings,
   TrendingUp,
@@ -54,6 +55,7 @@ const NAV = [
     group: "Sistema",
     items: [
       { href: "/dashboard/testes-api", label: "Testes de API", icon: FlaskConical, adminOnly: true },
+      { href: "/dashboard/plano", label: "Plano", icon: CreditCard },
       { href: "/dashboard/configuracoes", label: "Configurações", icon: Settings },
     ],
   },

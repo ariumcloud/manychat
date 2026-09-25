@@ -19,18 +19,6 @@ type RefreshResult = {
   permissions: string[];
 };
 
-type Billing = {
-  ready: boolean;
-  plan: string | null;
-  planName: string | null;
-  status: string | null;
-  periodEnd: string | null;
-  used: number;
-  limit: number | null;
-  available: Array<{ slug: string; name: string; price: string }>;
-  free: boolean;
-};
-
 type AccountInfo = {
   config: Record<string, boolean>;
   account: {
@@ -40,7 +28,6 @@ type AccountInfo = {
     followers_count: number | null;
   } | null;
   role: "admin" | "client" | null;
-  billing: Billing;
   connected: boolean;
   token: TokenStatus | null;
   meta: { flavor: string; version: string; base: string };
@@ -62,132 +49,6 @@ const IG_MESSAGES: Record<string, { ok: boolean; text: string }> = {
     text: "Não consegui concluir a conexão. Confirme que a conta é Business/Creator e que você aceitou o convite de testador do app.",
   },
 };
-
-/** Mensagem para o ?assinatura=… que o checkout da Stripe devolve. */
-const BILLING_MESSAGES: Record<string, { ok: boolean; text: string }> = {
-  ok: { ok: true, text: "Pagamento recebido! Sua assinatura aparece aqui em instantes." },
-  cancelada: { ok: false, text: "O pagamento foi cancelado. Você pode escolher um plano quando quiser." },
-  "ja-ativa": { ok: false, text: "Você já tem uma assinatura. Para trocar de plano, use Gerenciar assinatura." },
-  "plano-invalido": { ok: false, text: "Esse plano não existe." },
-  indisponivel: { ok: false, text: "As assinaturas ainda não estão disponíveis. Tente mais tarde." },
-  erro: { ok: false, text: "Não consegui abrir o pagamento. Tente de novo." },
-};
-
-const STATUS_LABELS: Record<string, { label: string; ok: boolean }> = {
-  active: { label: "ativa", ok: true },
-  trialing: { label: "em teste", ok: true },
-  past_due: { label: "pagamento pendente", ok: false },
-  canceled: { label: "cancelada", ok: false },
-  unpaid: { label: "não paga", ok: false },
-  incomplete: { label: "aguardando pagamento", ok: false },
-  incomplete_expired: { label: "expirada", ok: false },
-};
-
-function BillingSection({ billing }: { billing: Billing }) {
-  const [opening, setOpening] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function openPortal() {
-    setOpening(true);
-    setError(null);
-    const { ok, data, error: err } = await fetchJson<{ url: string }>("/api/stripe/portal", {
-      method: "POST",
-    });
-    if (ok && data) {
-      window.location.assign(data.url);
-      return;
-    }
-    setError(err ?? "Não consegui abrir o portal.");
-    setOpening(false);
-  }
-
-  if (!billing.plan) {
-    return (
-      <section className="card p-5">
-        <h2 className="text-sm font-semibold">Assinatura</h2>
-        {billing.ready && billing.available.length > 0 ? (
-          <>
-            <p className="mt-1 text-sm text-[var(--fg-muted)]">
-              Escolha um plano para ativar suas automações.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {billing.available.map((p) => (
-                <a key={p.slug} href={`/api/stripe/checkout?plan=${p.slug}`} className="btn btn-ghost">
-                  {p.name} · R$ {p.price}/mês
-                </a>
-              ))}
-            </div>
-          </>
-        ) : (
-          <p className="mt-1 text-sm text-[var(--fg-muted)]">As assinaturas ainda não estão disponíveis.</p>
-        )}
-      </section>
-    );
-  }
-
-  const status = billing.free
-    ? { label: "sem assinatura", ok: true }
-    : (STATUS_LABELS[billing.status ?? ""] ?? { label: billing.status ?? "—", ok: false });
-  const pct = billing.limit ? Math.min(100, Math.round((billing.used / billing.limit) * 100)) : 0;
-
-  return (
-    <section className="card p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-sm font-semibold">
-            {billing.free ? "Plano" : "Assinatura"} · {billing.planName}{" "}
-            <span className={`chip ml-1 ${status.ok ? "chip-ok" : "chip-danger"}`}>{status.label}</span>
-          </h2>
-          {billing.periodEnd && (
-            <p className="mt-1 text-xs text-[var(--fg-dim)]">
-              Próxima renovação em {new Date(billing.periodEnd).toLocaleDateString("pt-BR")}
-            </p>
-          )}
-        </div>
-        {!billing.free && (
-          <button className="btn btn-ghost shrink-0" onClick={openPortal} disabled={opening}>
-            {opening && <Loader2 size={14} className="animate-spin" />}
-            Gerenciar assinatura
-          </button>
-        )}
-      </div>
-
-      <div className="mt-4">
-        <div className="flex items-baseline justify-between text-sm">
-          <span className="text-[var(--fg-muted)]">Mensagens neste mês</span>
-          <span>
-            <strong>{billing.used.toLocaleString("pt-BR")}</strong>
-            {billing.limit ? ` de ${billing.limit.toLocaleString("pt-BR")}` : " · sem limite"}
-          </span>
-        </div>
-        {billing.limit && (
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--bg-elev-2)]">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${pct}%`,
-                background: pct >= 90 ? "var(--danger)" : "var(--brand)",
-              }}
-            />
-          </div>
-        )}
-      </div>
-      {billing.free && billing.ready && billing.available.length > 0 && (
-        <div className="mt-4 border-t border-[var(--border)] pt-4">
-          <p className="text-sm text-[var(--fg-muted)]">Precisa de mais mensagens? Assine um plano.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {billing.available.map((p) => (
-              <a key={p.slug} href={`/api/stripe/checkout?plan=${p.slug}`} className="btn btn-ghost">
-                {p.name} · R$ {p.price}/mês
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-      {error && <p className="mt-3 text-sm text-[var(--danger)]">{error}</p>}
-    </section>
-  );
-}
 
 type ClientRow = {
   id: string;
@@ -341,8 +202,6 @@ function ConfiguracoesContent() {
   // Volta do OAuth: o callback redireciona para /configuracoes?ig=<resultado>.
   const igStatus = useSearchParams().get("ig");
   const igResult = igStatus ? (IG_MESSAGES[igStatus] ?? IG_MESSAGES.erro) : null;
-  const billingStatus = useSearchParams().get("assinatura");
-  const billingResult = billingStatus ? (BILLING_MESSAGES[billingStatus] ?? BILLING_MESSAGES.erro) : null;
   // Incrementar isto recarrega o diagnóstico.
   const [version, setVersion] = useState(0);
 
@@ -421,14 +280,6 @@ function ConfiguracoesContent() {
           </div>
         )}
 
-        {billingResult && (
-          <div
-            className={`card p-4 text-sm ${billingResult.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}
-          >
-            {billingResult.text}
-          </div>
-        )}
-
         {loadError && (
           <div className="card border-[rgba(248,113,113,0.4)] p-4 text-sm text-[var(--danger)] xl:col-span-2">
             {loadError}
@@ -457,8 +308,6 @@ function ConfiguracoesContent() {
           </p>
         </section>
         )}
-
-        {info && (info.role === "client" || info.billing.plan) && <BillingSection billing={info.billing} />}
 
         {info?.role === "client" && !info.connected && (
           <section className="card border-[var(--warn)] p-5">

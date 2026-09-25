@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <TokenWarning account={account} />
         {access && !access.allowed && (
           <Link
-            href="/dashboard/configuracoes"
+            href="/dashboard/plano"
             className="block bg-[color-mix(in_srgb,var(--danger)_16%,transparent)] px-8 py-2.5 text-sm text-[var(--danger)]"
           >
             {access.reason} Ver assinatura.

@@ -23,7 +23,7 @@ async function postHandler(req: Request) {
 
   const session = await stripe().billingPortal.sessions.create({
     customer: account.stripe_customer_id,
-    return_url: `${publicOrigin(req)}/dashboard/configuracoes`,
+    return_url: `${publicOrigin(req)}/dashboard/plano`,
   });
   return NextResponse.json({ url: session.url });
 }
