@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Copy, Loader2, RefreshCw, UserPlus, X } from "lucide-react";
+import { Check, Copy, Loader2, RefreshCw, UserPlus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { fetchJson } from "@/lib/fetchJson";
 
@@ -44,15 +44,6 @@ type AccountInfo = {
   token: TokenStatus | null;
   meta: { flavor: string; version: string; base: string };
   webhookUrl: string;
-};
-
-const CONFIG_LABELS: Record<string, string> = {
-  supabase: "Supabase (URL + service_role key)",
-  meta: "App do Meta (APP_ID + APP_SECRET)",
-  token: "Token de acesso do Instagram",
-  verifyToken: "Verify token do webhook",
-  auth: "Senha do painel + AUTH_SECRET",
-  oauth: "Conectar Instagram por OAuth (APP_ID + APP_SECRET)",
 };
 
 /** Mensagem para o ?ig=… que o callback do OAuth devolve. */
@@ -431,30 +422,6 @@ function ConfiguracoesContent() {
           <div className="xl:col-span-2">
             <ClientsPanel />
           </div>
-        )}
-
-        {info?.role === "admin" && (
-        <section className="card p-5">
-          <h2 className="text-sm font-semibold">O que já está configurado</h2>
-          <ul className="mt-4 space-y-2">
-            {Object.entries(info?.config ?? {}).map(([key, ok]) => (
-              <li key={key} className="flex items-center gap-2.5 text-sm">
-                {ok ? (
-                  <Check size={15} className="text-[var(--success)]" />
-                ) : (
-                  <X size={15} className="text-[var(--danger)]" />
-                )}
-                <span className={ok ? "" : "text-[var(--fg-muted)]"}>
-                  {CONFIG_LABELS[key] ?? key}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-4 text-xs text-[var(--fg-dim)]">
-            Tudo isso vem do arquivo <code className="rounded bg-[var(--bg-elev-2)] px-1.5 py-0.5">.env.local</code>{" "}
-            na raiz do projeto (e das Environment Variables na Vercel, em produção).
-          </p>
-        </section>
         )}
 
         {info?.role === "admin" && (

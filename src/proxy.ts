@@ -37,6 +37,10 @@ export async function proxy(req: NextRequest) {
     // Pagina de vendas (a raiz): publica.
     pathname === "/" ||
     pathname === "/cadastro" ||
+    // Paginas legais (exigidas pela Meta para o App Review): publicas.
+    pathname === "/privacidade" ||
+    pathname === "/termos" ||
+    pathname === "/exclusao-de-dados" ||
     pathname === "/login"
   ) {
     return NextResponse.next();

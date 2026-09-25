@@ -28,7 +28,21 @@ export function Footer() {
                 Perguntas
               </a>
             </li>
-            {/* TODO: adicionar "Termos de Uso" e "Política de Privacidade" quando as páginas existirem. */}
+            <li>
+              <Link href="/termos" className="text-[var(--lp-soft)] hover:text-[var(--fg)]">
+                Termos de Uso
+              </Link>
+            </li>
+            <li>
+              <Link href="/privacidade" className="text-[var(--lp-soft)] hover:text-[var(--fg)]">
+                Política de Privacidade
+              </Link>
+            </li>
+            <li>
+              <Link href="/exclusao-de-dados" className="text-[var(--lp-soft)] hover:text-[var(--fg)]">
+                Exclusão de dados
+              </Link>
+            </li>
           </ul>
         </nav>
       </div>
