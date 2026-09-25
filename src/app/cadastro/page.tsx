@@ -1,7 +1,8 @@
 import { isPlanSlug } from "@/lib/billing/plans";
 import { SignupForm } from "./SignupForm";
+import { BRAND } from "@/lib/brand";
 
-export const metadata = { title: "Criar conta — Fluxo" };
+export const metadata = { title: `Criar conta — ${BRAND.name}` };
 
 export default async function CadastroPage({
   searchParams,
@@ -27,7 +28,7 @@ export default async function CadastroPage({
       <div className="relative">
         {/* Lido no servidor: o campo do código só aparece se ele for exigido. */}
         <SignupForm needsCode={Boolean(process.env.SIGNUP_CODE?.trim())} plan={plan} />
-        <p className="mt-6 text-center text-xs text-[var(--fg-dim)]">Fluxo · Instagram no automático</p>
+        <p className="mt-6 text-center text-xs text-[var(--fg-dim)]">{BRAND.name} · {BRAND.short}</p>
       </div>
     </main>
   );

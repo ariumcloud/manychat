@@ -18,6 +18,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BRAND } from "@/lib/brand";
 
 /**
  * Onze itens numa lista só viram parede. Em grupos, a pessoa acha o que quer
@@ -81,11 +82,11 @@ export function Sidebar({
       <aside className="flex w-[60px] shrink-0 flex-col items-center border-r border-[var(--border)] bg-[var(--bg-sidebar)] py-4">
         <Link
           href="/dashboard"
-          title="Fluxo"
+          title={BRAND.name}
           className="grid h-9 w-9 place-items-center rounded-xl text-[15px] font-bold text-white"
           style={{ background: "var(--brand)", boxShadow: "0 8px 22px -8px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.25)" }}
         >
-          F
+          {BRAND.initial}
         </Link>
 
         <nav className="mt-5 flex flex-1 flex-col items-center gap-1 overflow-y-auto">
@@ -136,11 +137,11 @@ export function Sidebar({
             boxShadow: "0 8px 22px -8px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.25)",
           }}
         >
-          F
+          {BRAND.initial}
         </div>
         <div className="min-w-0">
-          <p className="text-[15px] font-semibold leading-tight tracking-tight">Fluxo</p>
-          <p className="text-[11px] leading-tight text-[var(--fg-dim)]">Instagram no automático</p>
+          <p className="text-[15px] font-semibold leading-tight tracking-tight">{BRAND.name}</p>
+          <p className="text-[11px] leading-tight text-[var(--fg-dim)]">{BRAND.short}</p>
         </div>
       </div>
 

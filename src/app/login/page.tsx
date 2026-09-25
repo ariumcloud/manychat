@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Loader2, Lock } from "lucide-react";
+import { BRAND } from "@/lib/brand";
 
 function LoginForm() {
   const router = useRouter();
@@ -123,7 +124,7 @@ export default function LoginPage() {
           <LoginForm />
         </Suspense>
         <p className="mt-6 text-center text-xs text-[var(--fg-dim)]">
-          Fluxo · Instagram no automático
+          {BRAND.name} · {BRAND.short}
         </p>
       </div>
     </main>

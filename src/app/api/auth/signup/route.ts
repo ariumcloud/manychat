@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { createSessionValue, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 import { createClientAccount, EMAIL_RE } from "@/lib/clients";
-import { checkLoginRate } from "@/lib/login-rate";
+import { checkLoginRate, checkPersistentRate } from "@/lib/login-rate";
 
 export const runtime = "nodejs";
 
@@ -27,6 +27,12 @@ export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
   if (!checkLoginRate(`signup:${ip}`)) {
     return NextResponse.json({ error: "Muitas tentativas. Espere alguns minutos." }, { status: 429 });
+  }
+
+  // Freio de verdade, no banco: 10 cadastros por hora por IP (o Map acima so vale por instancia).
+  const ipKey = `signup:${crypto.createHash("sha256").update(ip).digest("hex").slice(0, 32)}`;
+  if (!(await checkPersistentRate(ipKey, 10, 3600_000))) {
+    return NextResponse.json({ error: "Muitos cadastros deste endereço. Tente de novo mais tarde." }, { status: 429 });
   }
 
   const { email, password, code } = (await req.json().catch(() => ({}))) as {
