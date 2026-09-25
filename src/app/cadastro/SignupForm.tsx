@@ -115,6 +115,10 @@ export function SignupForm({ needsCode, plan }: { needsCode: boolean; plan: stri
         Criar conta
       </button>
 
+      <p className="mt-3 text-center text-[11px] leading-snug text-[var(--fg-dim)]">
+        Acesso em liberação: depois de criar a conta, envie o @ do seu Instagram no WhatsApp (49) 99931-7620 pra liberarmos a conexão.
+      </p>
+
       <p className="mt-4 text-center text-xs text-[var(--fg-muted)]">
         Já tem conta?{" "}
         <Link

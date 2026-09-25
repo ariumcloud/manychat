@@ -476,6 +476,26 @@ function ConfiguracoesContent() {
 
         {info && (info.role === "client" || info.billing.plan) && <BillingSection billing={info.billing} />}
 
+        {info?.role === "client" && !info.connected && (
+          <section className="card border-[var(--warn)] p-5">
+            <h2 className="text-sm font-semibold">Antes de conectar: libere seu Instagram</h2>
+            <p className="mt-1 text-sm text-[var(--fg-muted)]">
+              O app ainda está em análise na Meta, então cada Instagram precisa ser liberado por nós
+              antes do primeiro login. Envie o <strong>@ do seu Instagram</strong> pelo{" "}
+              <a
+                href="https://wa.me/5549999317620?text=Oi!%20Meu%20Instagram%20%C3%A9%20@"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[var(--accent)] underline"
+              >
+                WhatsApp (49) 99931-7620
+              </a>
+              , aceite o convite em Instagram → Configurações → Apps e sites → Convites de
+              teste, e só então toque em Conectar Instagram.
+            </p>
+          </section>
+        )}
+
         <section className="card p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
