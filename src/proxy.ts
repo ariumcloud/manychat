@@ -53,9 +53,13 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Guarda o destino COMPLETO (com a query, ex.: ?plan=pro do checkout) e nao
+  // repassa a query original ao login, senao ela se perde na volta.
+  const next = pathname + req.nextUrl.search;
   const url = req.nextUrl.clone();
   url.pathname = "/login";
-  url.searchParams.set("next", pathname);
+  url.search = "";
+  url.searchParams.set("next", next);
   return NextResponse.redirect(url);
 }
 
