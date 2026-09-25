@@ -1,15 +1,13 @@
-import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { currentSession } from "@/lib/account-context";
 import { withApi } from "@/lib/api";
 import { db } from "@/lib/supabase";
 import { hashPassword } from "@/lib/password";
+import { createClientAccount } from "@/lib/clients";
 import { PENDING_PREFIX } from "@/lib/meta/token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const LOGIN_RE = /^[a-z0-9._@+-]{3,80}$/;
 
 /** Rotas de cliente so servem o dono; o cliente nunca ve nem cria contas. */
 async function requireAdmin() {
@@ -49,39 +47,13 @@ async function postHandler(req: Request) {
     password?: string;
     name?: string;
   };
-  const login = (body.login ?? "").trim().toLowerCase();
-  const password = body.password ?? "";
-
-  if (!LOGIN_RE.test(login)) {
-    return NextResponse.json(
-      { error: "Use um e-mail ou login de 3 a 80 caracteres (letras, números e . _ @ + -)." },
-      { status: 400 },
-    );
-  }
-  if (password.length < 8) {
-    return NextResponse.json({ error: "A senha precisa de pelo menos 8 caracteres." }, { status: 400 });
-  }
-
-  const { data, error } = await db()
-    .from("mc_accounts")
-    .insert({
-      // Placeholder ate o cliente conectar o Instagram (o OAuth troca pelo id real).
-      ig_user_id: `${PENDING_PREFIX}${crypto.randomUUID()}`,
-      login,
-      password_hash: hashPassword(password),
-      name: body.name?.trim() || null,
-    })
-    .select("id, login")
-    .single();
-
-  if (error) {
-    const taken = error.code === "23505";
-    return NextResponse.json(
-      { error: taken ? "Esse login já existe." : error.message },
-      { status: taken ? 409 : 500 },
-    );
-  }
-  return NextResponse.json({ account: data }, { status: 201 });
+  const result = await createClientAccount({
+    login: body.login ?? "",
+    password: body.password ?? "",
+    name: body.name,
+  });
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+  return NextResponse.json({ account: { id: result.accountId, login: result.login } }, { status: 201 });
 }
 
 /** Troca a senha de um cliente. */

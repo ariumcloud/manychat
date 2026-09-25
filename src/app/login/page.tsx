@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Loader2, Lock } from "lucide-react";
@@ -85,6 +86,13 @@ function LoginForm() {
         {loading && <Loader2 size={15} className="animate-spin" />}
         Entrar
       </button>
+
+      <p className="mt-4 text-center text-xs text-[var(--fg-muted)]">
+        Ainda não tem conta?{" "}
+        <Link href="/cadastro" className="text-[var(--accent)] hover:underline">
+          Criar conta
+        </Link>
+      </p>
     </form>
   );
 }

@@ -19,6 +19,7 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/r/") ||
     // Pagina de vendas: publica.
     pathname === "/planos" ||
+    pathname === "/cadastro" ||
     pathname === "/login"
   ) {
     return NextResponse.next();
@@ -41,6 +42,6 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|api/webhook|api/auth|api/cron|api/mcp|r/|login|planos|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|css|js|woff2?|ttf|eot|mp3|wav|json|txt)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|api/webhook|api/auth|api/cron|api/mcp|r/|login|planos|cadastro|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|css|js|woff2?|ttf|eot|mp3|wav|json|txt)$).*)",
   ],
 };
