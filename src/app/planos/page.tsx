@@ -15,6 +15,10 @@ export const metadata: Metadata = {
  */
 const CONTACT_URL = process.env.NEXT_PUBLIC_CONTACT_URL || "/login";
 
+/**
+ * Para vender so 3 planos, apague o objeto do plano que sair: a grade se ajusta
+ * sozinha. So um plano pode ter `highlight: true`.
+ */
 const PLANS = [
   {
     name: "Essencial",
@@ -24,20 +28,30 @@ const PLANS = [
     highlight: false,
   },
   {
-    name: "Pro",
+    name: "Crescimento",
     price: "69,90",
-    volume: "Até 8.000 mensagens por mês",
-    blurb: "Para quem já vende com Reels e comentários.",
+    volume: "Até 5.000 mensagens por mês",
+    blurb: "Para quem já posta com frequência.",
+    highlight: false,
+  },
+  {
+    name: "Pro",
+    price: "97",
+    volume: "Até 10.000 mensagens por mês",
+    blurb: "Para quem vende com Reels e comentários todo dia.",
     highlight: true,
   },
   {
     name: "Ilimitado",
-    price: "99,90",
+    price: "197",
     volume: "Mensagens ilimitadas (uso justo)",
     blurb: "Para perfis grandes, sem contar mensagem.",
     highlight: false,
   },
 ];
+
+// Classes escritas por extenso: o Tailwind so gera o que le no codigo.
+const PLAN_GRID = PLANS.length <= 3 ? "lg:grid-cols-3" : "lg:grid-cols-4";
 
 const INCLUDED = [
   "Automações de comentário → DM por palavra-chave",
@@ -73,7 +87,7 @@ const FAQ = [
 export default function PlanosPage() {
   return (
     <div className="ambient min-h-screen">
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-5 py-5">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
         <div className="flex items-center gap-2.5">
           <div
             className="grid h-9 w-9 place-items-center rounded-xl text-sm font-bold text-white"
@@ -88,7 +102,7 @@ export default function PlanosPage() {
         </Link>
       </header>
 
-      <main className="mx-auto max-w-5xl px-5 pb-24">
+      <main className="mx-auto max-w-6xl px-5 pb-24">
         {/* Hero */}
         <section className="rise pt-10 pb-14 text-center sm:pt-16">
           <span className="chip">
@@ -142,7 +156,7 @@ export default function PlanosPage() {
             </p>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className={`mt-8 grid gap-4 sm:grid-cols-2 ${PLAN_GRID}`}>
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
