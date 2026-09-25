@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE, verifySessionValue } from "@/lib/auth";
+import { SESSION_COOKIE, readSession } from "@/lib/auth";
 
 /**
  * Protege o painel inteiro. O webhook fica de fora de proposito: ele e chamado
@@ -28,8 +28,8 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const ok = await verifySessionValue(req.cookies.get(SESSION_COOKIE)?.value, secret);
-  if (ok) return NextResponse.next();
+  const session = await readSession(req.cookies.get(SESSION_COOKIE)?.value, secret);
+  if (session) return NextResponse.next();
 
   const url = req.nextUrl.clone();
   url.pathname = "/login";

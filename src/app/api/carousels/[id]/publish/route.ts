@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
+import { getAccount } from "@/lib/repo";
 import { withApi } from "@/lib/api";
 import { renderSlidePng } from "@/lib/carousel/render";
 import type { Carousel } from "@/lib/carousel/types";
@@ -42,7 +43,13 @@ async function postHandler(req: Request, { params }: Params) {
   }
 
   const supabase = db();
-  const { data } = await supabase.from("mc_carousels").select("*").eq("id", id).maybeSingle();
+  const account = await getAccount();
+  const { data } = await supabase
+    .from("mc_carousels")
+    .select("*")
+    .eq("id", id)
+    .eq("account_id", account.id)
+    .maybeSingle();
   if (!data) return NextResponse.json({ error: "Carrossel não encontrado." }, { status: 404 });
 
   const carousel = data as Carousel;
@@ -119,6 +126,7 @@ async function postHandler(req: Request, { params }: Params) {
       status: "published",
     })
     .eq("id", id)
+    .eq("account_id", account.id)
     .select()
     .single();
 

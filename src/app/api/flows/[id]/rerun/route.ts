@@ -34,7 +34,12 @@ async function postHandler(req: Request, { params }: Params) {
   const account = await getAccount();
   const supabase = db();
 
-  const { data: flow } = await supabase.from("mc_flows").select("*").eq("id", id).maybeSingle();
+  const { data: flow } = await supabase
+    .from("mc_flows")
+    .select("*")
+    .eq("id", id)
+    .eq("account_id", account.id)
+    .maybeSingle();
   if (!flow) return NextResponse.json({ error: "Fluxo não encontrado." }, { status: 404 });
   if (!(flow as Flow).nodes?.some((n) => n.id === body.startNodeId)) {
     return NextResponse.json({ error: "Esse nó não existe no fluxo." }, { status: 400 });

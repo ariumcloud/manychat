@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 import { getAccount } from "@/lib/repo";
+import { runWithAccount } from "@/lib/account-context";
 import { listMedia, MetaError, type IgMedia } from "@/lib/meta/client";
 import { createAutomation } from "@/lib/automations";
 import { DEFAULT_ASK_FOLLOW_TEXT } from "@/lib/flow/defaults";
@@ -24,18 +25,12 @@ type RpcMessage = { jsonrpc: "2.0"; id?: string | number | null; method?: string
 
 const PROTOCOL_VERSION = "2025-06-18";
 
-async function authorized(secret: string): Promise<boolean> {
-  if (!secret || secret.length < 32) return false;
-  const { data } = await db()
-    .from("mc_accounts")
-    .select("mcp_secret_hash")
-    .not("mcp_secret_hash", "is", null)
-    .limit(1)
-    .maybeSingle();
-  const stored = data?.mcp_secret_hash as string | undefined;
-  if (!stored) return false;
+/** Conta dona da chave, ou null. Cada conta tem a sua: a chave escolhe em qual Instagram agir. */
+async function accountForSecret(secret: string): Promise<string | null> {
+  if (!secret || secret.length < 32) return null;
   const given = crypto.createHash("sha256").update(secret).digest("hex");
-  return stored.length === given.length && crypto.timingSafeEqual(Buffer.from(stored), Buffer.from(given));
+  const { data } = await db().from("mc_accounts").select("id").eq("mcp_secret_hash", given).maybeSingle();
+  return data?.id ?? null;
 }
 
 // --- Ferramentas -------------------------------------------------------------
@@ -280,7 +275,8 @@ async function handle(msg: RpcMessage): Promise<object | null> {
 
 export async function POST(req: Request, { params }: Params) {
   const { secret } = await params;
-  if (!(await authorized(secret))) {
+  const accountId = await accountForSecret(secret);
+  if (!accountId) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
@@ -292,7 +288,9 @@ export async function POST(req: Request, { params }: Params) {
   }
 
   const messages = Array.isArray(body) ? body : [body];
-  const responses = (await Promise.all(messages.map(handle))).filter((r): r is object => r !== null);
+  const responses = (await runWithAccount(accountId, () => Promise.all(messages.map(handle)))).filter(
+    (r): r is object => r !== null,
+  );
   if (!responses.length) return new Response(null, { status: 202 });
   return NextResponse.json(Array.isArray(body) ? responses : responses[0]);
 }

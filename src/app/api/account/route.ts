@@ -3,6 +3,8 @@ import { configStatus } from "@/lib/env";
 import { getAccount, getAccountCached } from "@/lib/repo";
 import { inspectToken, metaConfig, MetaError } from "@/lib/meta/client";
 import { withApi } from "@/lib/api";
+import { currentSession } from "@/lib/account-context";
+import { PENDING_PREFIX } from "@/lib/meta/token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,11 +22,15 @@ async function getHandler(req: Request) {
   const config = configStatus();
 
   const account = config.supabase ? await getAccountCached().catch(() => null) : null;
-  const token = config.token ? await inspectToken() : null;
+  const session = await currentSession();
+  const connected = Boolean(account) && !account!.ig_user_id.startsWith(PENDING_PREFIX);
+  const token = connected ? await inspectToken() : null;
 
   return NextResponse.json({
     config,
     account,
+    role: session?.role ?? null,
+    connected,
     token,
     meta: metaConfig,
     webhookUrl: webhookUrl(req),

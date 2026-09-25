@@ -11,6 +11,9 @@ export const env = {
   get metaAppSecret() { return required("META_APP_SECRET"); },
   get metaVerifyToken() { return required("META_VERIFY_TOKEN"); },
   get igAccessToken() { return required("IG_ACCESS_TOKEN"); },
+  /** Conta Instagram do OAuth: cai no app da Meta quando nao ha um app do Instagram separado. */
+  get igAppId() { return process.env.IG_APP_ID || required("META_APP_ID"); },
+  get igAppSecret() { return process.env.IG_APP_SECRET || required("META_APP_SECRET"); },
   get igUserId() { return process.env.IG_USER_ID ?? ""; },
   get dashboardPassword() { return required("DASHBOARD_PASSWORD"); },
   get authSecret() { return required("AUTH_SECRET"); },
@@ -22,6 +25,7 @@ export function configStatus() {
     supabase: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
     meta: Boolean(process.env.META_APP_ID && process.env.META_APP_SECRET),
     token: Boolean(process.env.IG_ACCESS_TOKEN),
+    oauth: Boolean((process.env.IG_APP_ID || process.env.META_APP_ID) && (process.env.IG_APP_SECRET || process.env.META_APP_SECRET)),
     verifyToken: Boolean(process.env.META_VERIFY_TOKEN),
     auth: Boolean(process.env.DASHBOARD_PASSWORD && process.env.AUTH_SECRET),
   };

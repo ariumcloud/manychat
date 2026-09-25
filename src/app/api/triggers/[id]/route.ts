@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 import { withApi } from "@/lib/api";
+import { getAccount } from "@/lib/repo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ const EDITABLE = [
 
 async function patchHandler(req: Request, { params }: Params) {
   const { id } = await params;
+  const account = await getAccount();
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
   const patch: Record<string, unknown> = {};
@@ -31,6 +33,7 @@ async function patchHandler(req: Request, { params }: Params) {
     .from("mc_triggers")
     .update(patch)
     .eq("id", id)
+    .eq("account_id", account.id)
     .select("*, flows:mc_flows(id, name, status)")
     .single();
 
@@ -40,7 +43,8 @@ async function patchHandler(req: Request, { params }: Params) {
 
 async function deleteHandler(_req: Request, { params }: Params) {
   const { id } = await params;
-  const { error } = await db().from("mc_triggers").delete().eq("id", id);
+  const account = await getAccount();
+  const { error } = await db().from("mc_triggers").delete().eq("id", id).eq("account_id", account.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

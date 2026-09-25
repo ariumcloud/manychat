@@ -1,5 +1,6 @@
 import { zipSync } from "fflate";
 import { db } from "@/lib/supabase";
+import { getAccount } from "@/lib/repo";
 import { withApi } from "@/lib/api";
 import { renderSlidePng } from "@/lib/carousel/render";
 import type { Carousel } from "@/lib/carousel/types";
@@ -19,8 +20,14 @@ type Params = { params: Promise<{ id: string }> };
  */
 async function getHandler(_req: Request, { params }: Params) {
   const { id } = await params;
+  const account = await getAccount();
 
-  const { data } = await db().from("mc_carousels").select("*").eq("id", id).maybeSingle();
+  const { data } = await db()
+    .from("mc_carousels")
+    .select("*")
+    .eq("id", id)
+    .eq("account_id", account.id)
+    .maybeSingle();
   if (!data) return new Response("Carrossel não encontrado", { status: 404 });
 
   const carousel = data as Carousel;

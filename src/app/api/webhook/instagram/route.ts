@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { verifySignature } from "@/lib/meta/verify";
 import type { ChangeEvent, MessagingEvent, WebhookBody } from "@/lib/meta/types";
 import { db } from "@/lib/supabase";
+import { runWithAccount } from "@/lib/account-context";
 import { getAccount, getOrCreateConversation, recordMessage, upsertContact } from "@/lib/repo";
 import { pickTrigger } from "@/lib/flow/matcher";
 import { pickFresh, runFlow } from "@/lib/flow/engine";
@@ -103,7 +104,6 @@ function missingConfig(): string[] {
   const needed = [
     "META_APP_SECRET",
     "META_VERIFY_TOKEN",
-    "IG_ACCESS_TOKEN",
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
   ];
@@ -189,19 +189,27 @@ async function processWebhook(body: WebhookBody) {
   };
 
   for (const entry of body.entry ?? []) {
+    // entry.id e o ID da conta do Instagram que recebeu o evento: e ele que diz
+    // de qual cliente e (cada um com seu token e seus fluxos).
+    const accountId = await accountIdForEntry(entry.id);
+    if (!accountId) {
+      console.warn("[webhook] evento de conta desconhecida:", entry.id);
+      continue;
+    }
+
     for (const event of entry.messaging ?? []) {
       const key = event.message?.mid ?? event.postback?.mid ?? `${entry.id}:${event.timestamp}:msg`;
-      enqueue(event.sender?.id ?? key, async () => {
+      enqueue(`${accountId}:${event.sender?.id ?? key}`, async () => {
         if (await alreadySeen(key, body.object, event)) return;
-        await handleMessaging(event).catch((err) => logFailure(key, err));
+        await runWithAccount(accountId, () => handleMessaging(event)).catch((err) => logFailure(key, err));
       });
     }
 
     for (const change of entry.changes ?? []) {
       const key = change.value?.id ?? `${entry.id}:${entry.time}:${change.field}`;
-      enqueue(change.value?.from?.id ?? key, async () => {
+      enqueue(`${accountId}:${change.value?.from?.id ?? key}`, async () => {
         if (await alreadySeen(key, body.object, change)) return;
-        await handleChange(change).catch((err) => logFailure(key, err));
+        await runWithAccount(accountId, () => handleChange(change)).catch((err) => logFailure(key, err));
       });
     }
   }
@@ -246,6 +254,20 @@ async function processWebhook(body: WebhookBody) {
   }
 }
 
+// IG user id -> id da conta no banco. So guarda acertos: conta nova aparece na hora.
+const accountIdCache = new Map<string, string>();
+
+async function accountIdForEntry(igUserId: string | undefined): Promise<string | null> {
+  if (!igUserId) return null;
+  const hit = accountIdCache.get(igUserId);
+  if (hit) return hit;
+
+  const { data } = await db().from("mc_accounts").select("id").eq("ig_user_id", igUserId).maybeSingle();
+  if (!data) return null;
+  accountIdCache.set(igUserId, data.id);
+  return data.id;
+}
+
 async function loadTriggers(accountId: string, kind: TriggerKind): Promise<Trigger[]> {
   const cacheKey = `${accountId}:${kind}`;
   const cached = triggersCache.get(cacheKey);
@@ -265,13 +287,18 @@ async function loadTriggers(accountId: string, kind: TriggerKind): Promise<Trigg
   return triggers;
 }
 
-async function loadFlow(flowId: string): Promise<Flow | null> {
+async function loadFlow(flowId: string, accountId: string): Promise<Flow | null> {
   const cached = flowCache.get(flowId);
   if (cached && Date.now() - cached.at < 30_000) {
     return cached.flow;
   }
 
-  const { data } = await db().from("mc_flows").select("*").eq("id", flowId).maybeSingle();
+  const { data } = await db()
+    .from("mc_flows")
+    .select("*")
+    .eq("id", flowId)
+    .eq("account_id", accountId)
+    .maybeSingle();
   const flow = data && data.status === "live" ? (data as Flow) : null;
   flowCache.set(flowId, { flow, at: Date.now() });
   return flow;
@@ -353,7 +380,7 @@ async function handleMessaging(event: MessagingEvent) {
   // exemplo, volta direto para o portao.
   if (payload?.startsWith("flow:")) {
     const [flowId, resumeNodeId] = payload.slice(5).split("@");
-    const flow = await loadFlow(flowId);
+    const flow = await loadFlow(flowId, account.id);
     if (flow) {
       if (await isRepeatedTap(contact.id, conversation.id as string, flow, payload)) {
         console.log(`[webhook] toque repetido em ${payload} ignorado (contato ${contact.id}).`);
@@ -394,7 +421,7 @@ async function handleMessaging(event: MessagingEvent) {
         : pickTrigger(triggers, text);
     if (!chosen) continue;
 
-    const flow = await loadFlow(chosen.flow_id);
+    const flow = await loadFlow(chosen.flow_id, account.id);
     if (!flow) continue;
 
     await runFlow(flow, {
@@ -470,7 +497,7 @@ async function handleChange(change: ChangeEvent) {
     }
   }
 
-  const flow = await loadFlow(chosen.flow_id);
+  const flow = await loadFlow(chosen.flow_id, account.id);
   if (!flow) return;
 
   // "so na primeira vez": nao redispara pra quem ja recebeu esse fluxo.

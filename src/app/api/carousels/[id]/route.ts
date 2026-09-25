@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/supabase";
 import { withApi } from "@/lib/api";
+import { getAccount } from "@/lib/repo";
 import { normalizeHex } from "@/lib/carousel/color";
 
 export const runtime = "nodejs";
@@ -10,7 +11,13 @@ type Params = { params: Promise<{ id: string }> };
 
 async function getHandler(_req: Request, { params }: Params) {
   const { id } = await params;
-  const { data, error } = await db().from("mc_carousels").select("*").eq("id", id).maybeSingle();
+  const account = await getAccount();
+  const { data, error } = await db()
+    .from("mc_carousels")
+    .select("*")
+    .eq("id", id)
+    .eq("account_id", account.id)
+    .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Carrossel não encontrado." }, { status: 404 });
   return NextResponse.json({ carousel: data });
@@ -18,6 +25,7 @@ async function getHandler(_req: Request, { params }: Params) {
 
 async function patchHandler(req: Request, { params }: Params) {
   const { id } = await params;
+  const account = await getAccount();
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -31,6 +39,7 @@ async function patchHandler(req: Request, { params }: Params) {
     .from("mc_carousels")
     .update(patch)
     .eq("id", id)
+    .eq("account_id", account.id)
     .select()
     .single();
 
@@ -40,7 +49,8 @@ async function patchHandler(req: Request, { params }: Params) {
 
 async function deleteHandler(_req: Request, { params }: Params) {
   const { id } = await params;
-  const { error } = await db().from("mc_carousels").delete().eq("id", id);
+  const account = await getAccount();
+  const { error } = await db().from("mc_carousels").delete().eq("id", id).eq("account_id", account.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

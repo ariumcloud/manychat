@@ -14,17 +14,23 @@ async function getHandler(req: Request) {
     return NextResponse.json({ error: "conversationId é obrigatório" }, { status: 400 });
   }
 
+  const account = await getAccount();
   const supabase = db();
   const { data, error } = await supabase
     .from("mc_messages")
     .select("*")
+    .eq("account_id", account.id)
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
     .limit(200);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await supabase.from("mc_conversations").update({ unread_count: 0 }).eq("id", conversationId);
+  await supabase
+    .from("mc_conversations")
+    .update({ unread_count: 0 })
+    .eq("id", conversationId)
+    .eq("account_id", account.id);
   return NextResponse.json({ messages: data });
 }
 
@@ -46,6 +52,7 @@ async function postHandler(req: Request) {
     .from("mc_conversations")
     .select("*, contacts:mc_contacts(igsid, username)")
     .eq("id", conversationId)
+    .eq("account_id", account.id)
     .maybeSingle();
 
   if (!conversation) {

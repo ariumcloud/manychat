@@ -1,4 +1,4 @@
-import { env } from "../env";
+import { requireAccountId } from "../account-context";
 import { accessToken, forgetAccessToken, saveAccessToken } from "./token";
 
 /**
@@ -72,7 +72,7 @@ async function call<T>(
 
 /** ID da conta usado nos endpoints de envio. "me" funciona nos dois sabores. */
 function selfId() {
-  return env.igUserId || "me";
+  return "me";
 }
 
 // --- Perfil da conta -------------------------------------------------------
@@ -393,7 +393,7 @@ export async function refreshLongLivedToken(): Promise<RefreshedToken> {
     );
   }
 
-  await saveAccessToken(json.access_token, json.expires_in);
+  await saveAccessToken(await requireAccountId(), json.access_token, json.expires_in);
 
   return {
     expiresInSeconds: json.expires_in,

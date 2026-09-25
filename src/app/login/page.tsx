@@ -8,6 +8,7 @@ import { Loader2, Lock } from "lucide-react";
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,7 +21,7 @@ function LoginForm() {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ login, password }),
     });
 
     if (res.ok) {
@@ -47,9 +48,23 @@ function LoginForm() {
         </div>
         <h1 className="mt-4 text-lg font-semibold tracking-tight">Entrar no painel</h1>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--fg-muted)]">
-          <Lock size={12} /> A senha está no seu .env.local
+          <Lock size={12} /> Use o e-mail (ou login) e a senha que você recebeu
         </p>
       </div>
+
+      <label className="label" htmlFor="login">
+        E-mail ou login
+      </label>
+      <input
+        id="login"
+        type="text"
+        autoFocus
+        autoComplete="username"
+        className="input mb-4"
+        value={login}
+        onChange={(e) => setLogin(e.target.value)}
+        placeholder="voce@email.com"
+      />
 
       <label className="label" htmlFor="password">
         Senha
@@ -57,7 +72,7 @@ function LoginForm() {
       <input
         id="password"
         type="password"
-        autoFocus
+        autoComplete="current-password"
         className="input"
         value={password}
         onChange={(e) => setPassword(e.target.value)}

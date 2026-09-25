@@ -1,6 +1,6 @@
 import { db } from "./supabase";
 import { getMe, getUserProfile } from "./meta/client";
-import { env } from "./env";
+import { currentAccountId, requireAccountId } from "./account-context";
 
 /** Janela do Meta: depois de 24h sem mensagem do usuario, nao da pra responder livremente. */
 export const WINDOW_HOURS = 24;
@@ -23,63 +23,69 @@ export type Account = {
 const ACCOUNT_COLUMNS =
   "id, ig_user_id, username, name, profile_picture_url, followers_count, ig_token_expires_at";
 
-let accountCache: { value: Account; at: number } | null = null;
+const accountCache = new Map<string, { value: Account; at: number }>();
+
+function remember(account: Account) {
+  accountCache.set(account.id, { value: account, at: Date.now() });
+  return account;
+}
+
+export function forgetAccount(accountId: string) {
+  accountCache.delete(accountId);
+}
+
+async function loadAccount(accountId: string, force: boolean): Promise<Account | null> {
+  const cached = accountCache.get(accountId);
+  if (!force && cached && Date.now() - cached.at < 5 * 60_000) return cached.value;
+
+  const { data } = await db()
+    .from("mc_accounts")
+    .select(ACCOUNT_COLUMNS)
+    .eq("id", accountId)
+    .maybeSingle();
+  return data ? remember(data as Account) : null;
+}
 
 /**
- * Devolve a conta conectada, criando/atualizando a partir da Graph API na
- * primeira vez. Cacheia por 5 minutos pra nao bater na Meta a cada request.
+ * Conta em uso (da sessao do painel ou declarada por webhook/cron/MCP, ver
+ * account-context.ts). Com `force`, relê o perfil na Graph API e atualiza a
+ * conta. Cacheia por 5 minutos pra nao bater no banco a cada request.
  */
 export async function getAccount(force = false): Promise<Account> {
-  if (!force && accountCache && Date.now() - accountCache.at < 5 * 60_000) {
-    return accountCache.value;
-  }
-
-  const supabase = db();
+  const accountId = await requireAccountId();
 
   if (!force) {
-    const { data } = await supabase.from("mc_accounts").select(ACCOUNT_COLUMNS).limit(1).maybeSingle();
-    if (data) {
-      accountCache = { value: data as Account, at: Date.now() };
-      return data as Account;
-    }
+    const account = await loadAccount(accountId, false);
+    if (account) return account;
+    throw new Error("Conta nao encontrada.");
   }
 
   const me = await getMe();
-  const igUserId = String(me.user_id ?? me.id ?? env.igUserId);
+  const igUserId = String(me.user_id ?? me.id ?? "");
   if (!igUserId) throw new Error("Nao consegui descobrir o ID da conta do Instagram.");
 
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("mc_accounts")
-    .upsert(
-      {
-        ig_user_id: igUserId,
-        username: me.username ?? null,
-        name: me.name ?? null,
-        profile_picture_url: me.profile_picture_url ?? null,
-        followers_count: me.followers_count ?? null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "ig_user_id" },
-    )
+    .update({
+      ig_user_id: igUserId,
+      username: me.username ?? null,
+      name: me.name ?? null,
+      profile_picture_url: me.profile_picture_url ?? null,
+      followers_count: me.followers_count ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", accountId)
     .select(ACCOUNT_COLUMNS)
     .single();
 
   if (error) throw new Error(`Falha ao salvar a conta: ${error.message}`);
-  accountCache = { value: data as Account, at: Date.now() };
-  return data as Account;
+  return remember(data as Account);
 }
 
-/** Conta conectada sem tocar na Meta. null se ainda nao conectou. Cacheia por 5 minutos na RAM. */
+/** Conta em uso sem tocar na Meta. null se nao ha sessao/conta. */
 export async function getAccountCached(): Promise<Account | null> {
-  if (accountCache && Date.now() - accountCache.at < 5 * 60_000) {
-    return accountCache.value;
-  }
-  const { data } = await db().from("mc_accounts").select(ACCOUNT_COLUMNS).limit(1).maybeSingle();
-  if (data) {
-    accountCache = { value: data as Account, at: Date.now() };
-    return data as Account;
-  }
-  return null;
+  const accountId = await currentAccountId();
+  return accountId ? loadAccount(accountId, false) : null;
 }
 
 export type Contact = {
