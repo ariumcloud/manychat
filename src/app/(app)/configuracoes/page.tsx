@@ -404,10 +404,10 @@ function ConfiguracoesContent() {
         }
       />
 
-      <div className="max-w-3xl space-y-5 p-8">
+      <div className="mx-auto grid w-full max-w-[1440px] items-start gap-4 px-6 py-5 xl:grid-cols-2">
         {igResult && (
           <div
-            className={`card p-4 text-sm ${igResult.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}
+            className={`card p-4 text-sm xl:col-span-2 ${igResult.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}
           >
             {igResult.text}
           </div>
@@ -422,12 +422,16 @@ function ConfiguracoesContent() {
         )}
 
         {loadError && (
-          <div className="card border-[rgba(248,113,113,0.4)] p-4 text-sm text-[var(--danger)]">
+          <div className="card border-[rgba(248,113,113,0.4)] p-4 text-sm text-[var(--danger)] xl:col-span-2">
             {loadError}
           </div>
         )}
 
-        {info?.role === "admin" && <ClientsPanel />}
+        {info?.role === "admin" && (
+          <div className="xl:col-span-2">
+            <ClientsPanel />
+          </div>
+        )}
 
         {info?.role === "admin" && (
         <section className="card p-5">

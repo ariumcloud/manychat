@@ -7,6 +7,7 @@ import {
   Clock,
   ExternalLink,
   Eye,
+  Film,
   Heart,
   Loader2,
   MessageCircle,
@@ -16,6 +17,7 @@ import {
   Zap,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { Kpi, Page } from "@/components/ui";
 import { fetchJson } from "@/lib/fetchJson";
 import { cn } from "@/lib/utils";
 
@@ -127,9 +129,9 @@ export default function ReelsPage() {
         subtitle="Escolha um post pra criar automação — e veja como cada um performou."
       />
 
-      <div className="p-8">
+      <Page>
         {error && (
-          <div className="card mb-5 border-[rgba(248,113,113,0.4)] p-4 text-sm text-[var(--danger)]">
+          <div className="card border-[rgba(248,113,113,0.4)] p-4 text-sm text-[var(--danger)]">
             {error}
           </div>
         )}
@@ -144,34 +146,23 @@ export default function ReelsPage() {
           </p>
         ) : (
           <>
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex gap-5 text-sm">
-                <span className="text-[var(--fg-muted)]">
-                  <strong className="text-[var(--fg)] tabular-nums">{compact(totals.views)}</strong>{" "}
-                  views
-                </span>
-                <span className="text-[var(--fg-muted)]">
-                  <strong className="text-[var(--fg)] tabular-nums">{compact(totals.reach)}</strong>{" "}
-                  contas alcançadas
-                </span>
-                <span className="text-[var(--fg-muted)]">
-                  <strong className="text-[var(--fg)] tabular-nums">
-                    {compact(totals.interactions)}
-                  </strong>{" "}
-                  interações
-                </span>
-              </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Kpi icon={Film} label="Posts analisados" value={reels.length} hint="mais recentes da conta" tone="linear-gradient(135deg,#7c5cff,#5b6bff)" />
+              <Kpi icon={Eye} label="Views" value={compact(totals.views)} hint="soma dos posts" tone="linear-gradient(135deg,#a44dff,#7c5cff)" />
+              <Kpi icon={Users} label="Contas alcançadas" value={compact(totals.reach)} hint="soma dos posts" tone="linear-gradient(135deg,#f9578e,#a44dff)" />
+              <Kpi icon={Zap} label="Interações" value={compact(totals.interactions)} hint="curtidas, comentários, salvos e envios" tone="linear-gradient(135deg,#34d399,#0ea5e9)" />
+            </div>
 
-              <div className="flex gap-1 rounded-lg bg-[var(--bg-elev)] p-1">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs text-[var(--fg-dim)]">Clique em um post para ver as métricas e criar a automação.</p>
+              <div className="flex gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg-elev)] p-1">
                 {SORTS.map((s) => (
                   <button
                     key={s.key}
                     onClick={() => setSort(s.key)}
                     className={cn(
-                      "rounded-md px-3 py-1.5 text-xs transition-colors",
-                      sort === s.key
-                        ? "bg-[var(--accent)] text-white"
-                        : "text-[var(--fg-muted)] hover:text-[var(--fg)]",
+                      "rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                      sort === s.key ? "bg-[var(--accent)] text-white" : "text-[var(--fg-muted)] hover:text-[var(--fg)]",
                     )}
                   >
                     {s.label}
@@ -180,7 +171,7 @@ export default function ReelsPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {sorted.map((r) => (
                 <button
                   key={r.id}
@@ -239,7 +230,7 @@ export default function ReelsPage() {
             </div>
           </>
         )}
-      </div>
+      </Page>
 
       {open && <ReelDetail reel={open} onClose={() => setOpenId(null)} />}
     </>

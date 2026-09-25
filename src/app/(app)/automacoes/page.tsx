@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { Page } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetchJson";
 import { DEFAULT_PUBLIC_REPLIES, GROUP_BUTTON } from "@/lib/flow/defaults";
@@ -28,7 +29,7 @@ type Trigger = {
   public_reply_enabled: boolean;
   public_reply_texts: string[];
   only_first_time: boolean;
-  flows: { id: string; name: string; status: string } | null;
+  flows: { id: string; name: string; status: string; sent_count?: number | null } | null;
 };
 
 type Media = { id: string; caption?: string; thumbnail_url?: string; media_url?: string; permalink?: string };
@@ -56,6 +57,7 @@ function Automacoes() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(Boolean(mediaFromUrl));
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "on" | "off">("all");
   // Incrementar isto refaz a busca — evita um load() solto que o React
   // reclamaria de chamar dentro do efeito.
   const [version, setVersion] = useState(0);
@@ -107,6 +109,10 @@ function Automacoes() {
     }
   }
 
+  const on = triggers.filter((t) => t.enabled).length;
+  const sent = triggers.reduce((sum, t) => sum + (t.flows?.sent_count ?? 0), 0);
+  const visible = triggers.filter((t) => (filter === "all" ? true : filter === "on" ? t.enabled : !t.enabled));
+
   return (
     <>
       <PageHeader
@@ -119,11 +125,9 @@ function Automacoes() {
         }
       />
 
-      <div className="p-8">
+      <Page>
         {error && (
-          <div className="card mb-5 border-[rgba(248,113,113,0.4)] p-4 text-sm text-[var(--danger)]">
-            {error}
-          </div>
+          <div className="card border-[rgba(248,113,113,0.4)] p-4 text-sm text-[var(--danger)]">{error}</div>
         )}
 
         {loading ? (
@@ -133,13 +137,44 @@ function Automacoes() {
         ) : triggers.length === 0 ? (
           <EmptyState onCreate={() => setCreating(true)} />
         ) : (
-          <div className="space-y-3">
-            {triggers.map((t) => (
-              <TriggerCard key={t.id} trigger={t} onToggle={toggle} onRemove={remove} />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Summary label="Ligadas" value={on} tone="var(--success)" />
+              <Summary label="Pausadas" value={triggers.length - on} tone="var(--fg-dim)" />
+              <Summary label="Mensagens disparadas" value={sent.toLocaleString("pt-BR")} tone="var(--accent)" />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {(
+                [
+                  ["all", `Todas (${triggers.length})`],
+                  ["on", `Ligadas (${on})`],
+                  ["off", `Pausadas (${triggers.length - on})`],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setFilter(value)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    filter === value
+                      ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--fg)]"
+                      : "border-[var(--border)] text-[var(--fg-muted)] hover:text-[var(--fg)]",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+              {visible.map((t) => (
+                <TriggerCard key={t.id} trigger={t} onToggle={toggle} onRemove={remove} />
+              ))}
+            </div>
+          </>
         )}
-      </div>
+      </Page>
 
       {creating && (
         <CreateDrawer
@@ -152,6 +187,18 @@ function Automacoes() {
         />
       )}
     </>
+  );
+}
+
+function Summary({ label, value, tone }: { label: string; value: React.ReactNode; tone: string }) {
+  return (
+    <div className="card flex items-center gap-3 px-4 py-3">
+      <span className="dot" style={{ background: tone, boxShadow: `0 0 0 3px color-mix(in srgb, ${tone} 20%, transparent)` }} />
+      <div>
+        <p className="text-[11px] text-[var(--fg-dim)]">{label}</p>
+        <p className="text-lg font-semibold leading-tight tabular-nums">{value}</p>
+      </div>
+    </div>
   );
 }
 
@@ -182,76 +229,80 @@ function TriggerCard({
   onToggle: (t: Trigger) => void;
   onRemove: (t: Trigger) => void;
 }) {
+  const isComment = trigger.kind === "comment_keyword";
   return (
-    <div className="card flex items-center gap-4 p-4">
-      <div
-        className={cn(
-          "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
-          trigger.kind === "comment_keyword"
-            ? "bg-[rgba(52,211,153,0.12)] text-[var(--success)]"
-            : "bg-[var(--accent-soft)] text-[var(--accent)]",
-        )}
-      >
-        {trigger.kind === "comment_keyword" ? <MessageCircle size={17} /> : <AtSign size={17} />}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">{trigger.flows?.name ?? "Sem fluxo"}</span>
-          <span className="chip">{KIND_LABEL[trigger.kind] ?? trigger.kind}</span>
-          {trigger.media_id ? (
-            <span className="chip">post específico</span>
-          ) : (
-            <span className="chip">qualquer post</span>
-          )}
-          {trigger.public_reply_enabled && <span className="chip">responde no comentário</span>}
-        </div>
-        <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-[var(--fg-muted)]">
-          {trigger.match_type === "any" ? (
-            <span className="italic">qualquer texto</span>
-          ) : (
-            trigger.keywords.map((k) => (
-              <code
-                key={k}
-                className="rounded bg-[var(--bg-elev-2)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--fg)]"
-              >
-                {k}
-              </code>
-            ))
-          )}
-        </p>
-      </div>
-
-      {trigger.flows && (
-        <Link
-          href={`/fluxos/${trigger.flows.id}`}
-          className="text-xs text-[var(--accent)] hover:underline"
-        >
-          editar fluxo
-        </Link>
-      )}
-
-      <button
-        onClick={() => onToggle(trigger)}
-        role="switch"
-        aria-checked={trigger.enabled}
-        aria-label={trigger.enabled ? "Desligar automação" : "Ligar automação"}
-        className={cn(
-          "relative h-5 w-9 shrink-0 rounded-full transition-colors",
-          trigger.enabled ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]",
-        )}
-      >
-        <span
+    <div className={cn("card card-hover flex flex-col gap-3 p-4", !trigger.enabled && "opacity-70")}>
+      <div className="flex items-start gap-3">
+        <div
           className={cn(
-            "absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white transition-transform",
-            trigger.enabled ? "translate-x-4.5" : "translate-x-0.5",
+            "grid h-9 w-9 shrink-0 place-items-center rounded-xl",
+            isComment ? "bg-[rgba(52,211,153,0.12)] text-[var(--success)]" : "bg-[var(--accent-soft)] text-[var(--accent)]",
           )}
-        />
-      </button>
+        >
+          {isComment ? <MessageCircle size={17} /> : <AtSign size={17} />}
+        </div>
 
-      <button onClick={() => onRemove(trigger)} className="btn btn-danger px-2" aria-label="Apagar">
-        <Trash2 size={15} />
-      </button>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold">{trigger.flows?.name ?? "Sem fluxo"}</p>
+          <p className="mt-0.5 text-[11px] text-[var(--fg-dim)]">
+            {KIND_LABEL[trigger.kind] ?? trigger.kind} · {trigger.media_id ? "post específico" : "qualquer post"}
+          </p>
+        </div>
+
+        <button
+          onClick={() => onToggle(trigger)}
+          role="switch"
+          aria-checked={trigger.enabled}
+          aria-label={trigger.enabled ? "Desligar automação" : "Ligar automação"}
+          className={cn(
+            "relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors",
+            trigger.enabled ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]",
+          )}
+        >
+          <span
+            className={cn(
+              "absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white transition-transform",
+              trigger.enabled ? "translate-x-4.5" : "translate-x-0.5",
+            )}
+          />
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {trigger.match_type === "any" ? (
+          <span className="chip italic">qualquer texto</span>
+        ) : (
+          trigger.keywords.map((k) => (
+            <code
+              key={k}
+              className="rounded-md border border-[var(--border)] bg-[var(--bg-elev-2)] px-2 py-0.5 font-mono text-[11px] text-[var(--fg)]"
+            >
+              {k}
+            </code>
+          ))
+        )}
+        {trigger.public_reply_enabled && <span className="chip">responde no comentário</span>}
+        {trigger.only_first_time && <span className="chip">1ª vez</span>}
+      </div>
+
+      <div className="mt-auto flex items-center justify-between border-t border-[var(--border)] pt-3">
+        <span className="text-xs text-[var(--fg-muted)]">
+          <strong className="font-semibold tabular-nums text-[var(--fg)]">
+            {(trigger.flows?.sent_count ?? 0).toLocaleString("pt-BR")}
+          </strong>{" "}
+          disparos
+        </span>
+        <div className="flex items-center gap-1.5">
+          {trigger.flows && (
+            <Link href={`/fluxos/${trigger.flows.id}`} className="btn btn-ghost !px-2.5 !py-1 text-xs">
+              Editar fluxo
+            </Link>
+          )}
+          <button onClick={() => onRemove(trigger)} className="btn btn-danger !px-2 !py-1" aria-label="Apagar">
+            <Trash2 size={13} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
