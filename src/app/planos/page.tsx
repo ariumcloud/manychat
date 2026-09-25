@@ -28,13 +28,6 @@ const PLANS = [
     highlight: false,
   },
   {
-    name: "Crescimento",
-    price: "69,90",
-    volume: "Até 5.000 mensagens por mês",
-    blurb: "Para quem já posta com frequência.",
-    highlight: false,
-  },
-  {
     name: "Pro",
     price: "97",
     volume: "Até 10.000 mensagens por mês",
@@ -51,7 +44,7 @@ const PLANS = [
 ];
 
 // Classes escritas por extenso: o Tailwind so gera o que le no codigo.
-const PLAN_GRID = PLANS.length <= 3 ? "lg:grid-cols-3" : "lg:grid-cols-4";
+const PLAN_GRID = PLANS.length <= 3 ? "md:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4";
 
 const INCLUDED = [
   "Automações de comentário → DM por palavra-chave",
@@ -156,7 +149,7 @@ export default function PlanosPage() {
             </p>
           </div>
 
-          <div className={`mt-8 grid gap-4 sm:grid-cols-2 ${PLAN_GRID}`}>
+          <div className={`mt-8 grid gap-4 ${PLAN_GRID}`}>
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
