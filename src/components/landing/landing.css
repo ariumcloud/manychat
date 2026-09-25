@@ -1,0 +1,240 @@
+/*
+ * Estilos só da página de vendas. As cores vêm dos tokens de globals.css;
+ * aqui ficam os enfeites (grid do hero, brilhos, maquetes) e as animações.
+ * Tudo que se mexe fica dentro de prefers-reduced-motion: no-preference.
+ */
+
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.lp-root) {
+    scroll-behavior: smooth;
+  }
+}
+
+.lp-root {
+  /* Texto de apoio com contraste AA sobre o fundo (o --fg-dim fica abaixo). */
+  --lp-soft: #b4bbcf;
+  --lp-eyebrow: #b9a6ff;
+  --lp-glass: rgba(255, 255, 255, 0.028);
+  --lp-glass-border: rgba(255, 255, 255, 0.075);
+  overflow-x: clip;
+}
+
+/* --- Texto ---------------------------------------------------------------- */
+
+.lp-gradient-text {
+  background: var(--brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.lp-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lp-eyebrow);
+}
+
+/* --- Superfícies ------------------------------------------------------------ */
+
+.lp-glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  border: 1px solid var(--lp-glass-border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-md), var(--hairline);
+}
+
+/* Borda em gradiente: o elemento pinta o gradiente e o filho cobre o miolo. */
+.lp-gradient-border {
+  position: relative;
+  border-radius: 22px;
+  padding: 1px;
+  background: linear-gradient(160deg, rgba(249, 87, 142, 0.7), rgba(164, 77, 255, 0.55) 45%, rgba(91, 107, 255, 0.25));
+  box-shadow: 0 24px 60px -24px var(--accent-glow);
+}
+.lp-gradient-border > * {
+  border-radius: 21px;
+}
+
+/* Grid sutil que some nas bordas: dá textura ao topo sem pesar. */
+.lp-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
+}
+
+.lp-glow {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(70px);
+  pointer-events: none;
+}
+
+/* Botão maior para as chamadas principais. */
+.lp-btn-lg {
+  padding: 0.8rem 1.25rem;
+  font-size: 0.95rem;
+  border-radius: 12px;
+}
+
+/* Navbar: vidro fosco depois que a página rola. */
+.lp-nav {
+  background: rgba(10, 12, 19, 0.72);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  backdrop-filter: saturate(160%) blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* --- Maquetes -------------------------------------------------------------- */
+
+.lp-phone {
+  border-radius: 40px;
+  padding: 9px;
+  background: linear-gradient(160deg, #2a2f40, #11131c 40%, #1b1f2c);
+  box-shadow:
+    0 40px 80px -30px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.lp-phone-screen {
+  border-radius: 32px;
+  background: #07080d;
+  overflow: hidden;
+}
+
+.lp-reel-video {
+  background:
+    radial-gradient(60% 50% at 25% 20%, rgba(249, 87, 142, 0.75), transparent 70%),
+    radial-gradient(55% 55% at 80% 35%, rgba(124, 92, 255, 0.8), transparent 70%),
+    radial-gradient(70% 60% at 50% 100%, rgba(255, 170, 90, 0.45), transparent 70%),
+    #1a1030;
+}
+
+.lp-bubble-in {
+  background: #1c1f2b;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.lp-bubble-out {
+  background: linear-gradient(135deg, #8b5cf6, #7c5cff 50%, #5b6bff);
+  color: #fff;
+}
+
+/* Janela de app (maquete do painel). */
+.lp-window {
+  border-radius: 18px;
+  background: #0c0e16;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 40px 100px -40px rgba(124, 92, 255, 0.35), var(--shadow-lg), var(--hairline);
+}
+
+/* FAQ: o + vira x quando abre. */
+.lp-faq summary {
+  list-style: none;
+  cursor: pointer;
+}
+.lp-faq summary::-webkit-details-marker {
+  display: none;
+}
+.lp-faq-icon {
+  transition: transform 0.2s ease;
+}
+.lp-faq[open] .lp-faq-icon {
+  transform: rotate(45deg);
+}
+
+/* --- Animações ----------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Maquete do hero: a conversa acontece em sequência ao carregar. Só CSS,
+     então o conteúdo aparece mesmo sem JavaScript. */
+  .lp-seq {
+    animation: lp-pop 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation-delay: var(--lp-delay, 0s);
+  }
+
+  .lp-pulse {
+    animation: lp-pulse 2.6s ease-in-out infinite;
+    animation-delay: var(--lp-delay, 0s);
+  }
+
+  .lp-float {
+    animation: lp-float 7s ease-in-out infinite;
+  }
+  .lp-float-slow {
+    animation: lp-float 9s ease-in-out -3s infinite;
+  }
+
+  /* Tracejado andando: dá sentido de fluxo às setas. */
+  .lp-dash {
+    stroke-dasharray: 5 6;
+    animation: lp-dash 1.4s linear infinite;
+  }
+
+  /* Entrada ao rolar. O RevealOnScroll só põe .lp-hide no que ainda está
+     fora da tela; sem JS nada fica escondido. */
+  .lp-hide {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+      transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition-delay: var(--lp-delay, 0s);
+  }
+  .lp-hide.lp-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  .lp-lift {
+    transition:
+      transform 0.25s ease,
+      border-color 0.25s ease,
+      box-shadow 0.25s ease;
+  }
+  .lp-lift:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: var(--shadow-lg), var(--hairline);
+  }
+}
+
+@keyframes lp-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes lp-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(124, 92, 255, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(124, 92, 255, 0.22);
+  }
+}
+
+@keyframes lp-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes lp-dash {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
