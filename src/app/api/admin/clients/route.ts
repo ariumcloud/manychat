@@ -22,7 +22,7 @@ async function getHandler() {
 
   const { data, error } = await db()
     .from("mc_accounts")
-    .select("id, login, username, name, ig_user_id, ig_token_expires_at, connected_at")
+    .select("id, login, username, name, ig_user_id, ig_token_expires_at, connected_at, ig_requested")
     .order("connected_at", { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -34,6 +34,7 @@ async function getHandler() {
       name: a.name,
       connected: !String(a.ig_user_id).startsWith(PENDING_PREFIX),
       tokenExpiresAt: a.ig_token_expires_at,
+      igRequested: a.ig_requested,
     })),
   });
 }

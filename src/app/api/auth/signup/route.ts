@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { createSessionValue, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
-import { createClientAccount, EMAIL_RE } from "@/lib/clients";
+import { createClientAccount, EMAIL_RE, normalizeIgHandle } from "@/lib/clients";
 import { checkLoginRate, checkPersistentRate } from "@/lib/login-rate";
 
 export const runtime = "nodejs";
@@ -35,10 +35,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Muitos cadastros deste endereço. Tente de novo mais tarde." }, { status: 429 });
   }
 
-  const { email, password, code } = (await req.json().catch(() => ({}))) as {
+  const { email, password, code, instagram } = (await req.json().catch(() => ({}))) as {
     email?: string;
     password?: string;
     code?: string;
+    instagram?: string;
   };
 
   const requiredCode = process.env.SIGNUP_CODE?.trim();
@@ -51,7 +52,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Informe um e-mail válido." }, { status: 400 });
   }
 
-  const result = await createClientAccount({ login, password: password ?? "" });
+  const igRequested = normalizeIgHandle(instagram);
+  if (!igRequested) {
+    return NextResponse.json({ error: "Informe o @ do seu Instagram (só letras, números, ponto e _)." }, { status: 400 });
+  }
+
+  const result = await createClientAccount({ login, password: password ?? "", igRequested });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 
   const res = NextResponse.json({ ok: true });

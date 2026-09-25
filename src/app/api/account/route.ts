@@ -8,6 +8,7 @@ import { PENDING_PREFIX } from "@/lib/meta/token";
 import { getUsage } from "@/lib/billing/usage";
 import { FREE_PLAN, PLANS, isFreePlan, isPlanSlug, priceIdFor, type PlanSlug } from "@/lib/billing/plans";
 import { stripeConfigured } from "@/lib/billing/stripe";
+import { db } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +29,12 @@ async function getHandler(req: Request) {
   const session = await currentSession();
   const connected = Boolean(account) && !account!.ig_user_id.startsWith(PENDING_PREFIX);
   const token = connected ? await inspectToken() : null;
+  // @ que o cliente informou no cadastro (so importa enquanto nao conectou).
+  const igRequested =
+    account && !connected
+      ? ((await db().from("mc_accounts").select("ig_requested").eq("id", account.id).maybeSingle()).data
+          ?.ig_requested ?? null)
+      : null;
 
   const free = isFreePlan(account?.plan);
   const plan = account?.plan && isPlanSlug(account.plan) ? account.plan : null;
@@ -65,6 +72,7 @@ async function getHandler(req: Request) {
     role: session?.role ?? null,
     billing,
     connected,
+    igRequested,
     token,
     meta: metaConfig,
     webhookUrl: webhookUrl(req),

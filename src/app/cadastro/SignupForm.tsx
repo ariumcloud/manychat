@@ -10,6 +10,7 @@ export function SignupForm({ needsCode, plan }: { needsCode: boolean; plan: stri
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [instagram, setInstagram] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ export function SignupForm({ needsCode, plan }: { needsCode: boolean; plan: stri
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, code }),
+      body: JSON.stringify({ email, password, code, instagram }),
     });
 
     if (res.ok) {
@@ -67,6 +68,20 @@ export function SignupForm({ needsCode, plan }: { needsCode: boolean; plan: stri
         placeholder="voce@email.com"
       />
 
+      <label className="label" htmlFor="instagram">
+        Seu @ do Instagram
+      </label>
+      <input
+        id="instagram"
+        type="text"
+        autoComplete="off"
+        autoCapitalize="none"
+        className="input mb-4"
+        value={instagram}
+        onChange={(e) => setInstagram(e.target.value)}
+        placeholder="@seuperfil"
+      />
+
       <label className="label" htmlFor="password">
         Senha
       </label>
@@ -101,7 +116,7 @@ export function SignupForm({ needsCode, plan }: { needsCode: boolean; plan: stri
 
       <button
         type="submit"
-        disabled={loading || !email || password.length < 8 || (needsCode && !code)}
+        disabled={loading || !email || !instagram.trim() || password.length < 8 || (needsCode && !code)}
         className="btn btn-primary mt-5 w-full"
       >
         {loading && <Loader2 size={15} className="animate-spin" />}
@@ -109,7 +124,7 @@ export function SignupForm({ needsCode, plan }: { needsCode: boolean; plan: stri
       </button>
 
       <p className="mt-3 text-center text-[11px] leading-snug text-[var(--fg-dim)]">
-        Acesso em liberação: depois de criar a conta, envie o @ do seu Instagram no WhatsApp (49) 99931-7620 pra liberarmos a conexão.
+        Acesso em liberação: usamos o @ pra liberar sua conexão com o Instagram e você recebe um convite lá.
       </p>
 
       <p className="mt-4 text-center text-xs text-[var(--fg-muted)]">

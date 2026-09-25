@@ -9,6 +9,20 @@ export const LOGIN_RE = /^[a-z0-9._@+-]{3,80}$/;
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const MIN_PASSWORD = 8;
 
+/** @ do Instagram: 1 a 30 letras, numeros, ponto e sublinhado (regra da propria plataforma). */
+export const IG_HANDLE_RE = /^[a-z0-9._]{1,30}$/;
+
+/** Aceita "@Fulano", "fulano" ou o link do perfil; devolve o @ limpo ou null. */
+export function normalizeIgHandle(raw: string | null | undefined): string | null {
+  const cleaned = (raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//, "")
+    .replace(/[/?#].*$/, "")
+    .replace(/^@/, "");
+  return IG_HANDLE_RE.test(cleaned) ? cleaned : null;
+}
+
 export type CreateClientResult =
   | { ok: true; accountId: string; login: string }
   | { ok: false; status: number; error: string };
@@ -21,6 +35,7 @@ export async function createClientAccount(input: {
   login: string;
   password: string;
   name?: string | null;
+  igRequested?: string | null;
 }): Promise<CreateClientResult> {
   const login = input.login.trim().toLowerCase();
 
@@ -44,6 +59,7 @@ export async function createClientAccount(input: {
       // Quem cria conta sem assinar cai no plano gratis (500 mensagens/mes).
       plan: FREE_PLAN.slug,
       name: input.name?.trim() || null,
+      ig_requested: input.igRequested ?? null,
     })
     .select("id, login")
     .single();

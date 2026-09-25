@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Copy, Loader2, RefreshCw, UserPlus } from "lucide-react";
+import { AlertTriangle, Check, Copy, Loader2, RefreshCw, UserPlus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { fetchJson } from "@/lib/fetchJson";
 
@@ -29,6 +29,7 @@ type AccountInfo = {
   } | null;
   role: "admin" | "client" | null;
   connected: boolean;
+  igRequested: string | null;
   token: TokenStatus | null;
   meta: { flavor: string; version: string; base: string };
   webhookUrl: string;
@@ -56,6 +57,7 @@ type ClientRow = {
   username: string | null;
   name: string | null;
   connected: boolean;
+  igRequested: string | null;
 };
 
 /** Só o dono: cria o painel de um cliente e abre o painel de outra conta. */
@@ -130,6 +132,16 @@ function ClientsPanel() {
                 {a.login ? `login: ${a.login}` : "conta do dono"}
               </span>
               {!a.connected && <span className="chip chip-warn ml-2">aguardando conexão</span>}
+              {!a.connected && a.igRequested && (
+                <a
+                  href={`https://www.instagram.com/${a.igRequested}/`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-2 text-xs text-[var(--accent)] hover:underline"
+                >
+                  liberar @{a.igRequested}
+                </a>
+              )}
             </div>
             <button className="btn btn-ghost" onClick={() => open(a.id)}>
               Abrir painel
@@ -310,22 +322,67 @@ function ConfiguracoesContent() {
         )}
 
         {info?.role === "client" && !info.connected && (
-          <section className="card border-[var(--warn)] p-5">
-            <h2 className="text-sm font-semibold">Antes de conectar: libere seu Instagram</h2>
-            <p className="mt-1 text-sm text-[var(--fg-muted)]">
-              O app ainda está em análise na Meta, então cada Instagram precisa ser liberado por nós
-              antes do primeiro login. Envie o <strong>@ do seu Instagram</strong> pelo{" "}
-              <a
-                href="https://wa.me/5549999317620?text=Oi!%20Meu%20Instagram%20%C3%A9%20@"
-                target="_blank"
-                rel="noreferrer"
-                className="text-[var(--accent)] underline"
-              >
-                WhatsApp (49) 99931-7620
-              </a>
-              , aceite o convite em Instagram → Configurações → Apps e sites → Convites de
-              teste, e só então toque em Conectar Instagram.
-            </p>
+          <section className="rounded-2xl border border-[var(--warn)] bg-[color-mix(in_srgb,var(--warn)_9%,transparent)] p-6 xl:col-span-2">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={26} className="mt-0.5 shrink-0 text-[var(--warn)]" />
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold tracking-tight">
+                  Atenção: seu Instagram precisa ser liberado por nós antes de conectar
+                </h2>
+                <p className="mt-1 text-sm text-[var(--fg-muted)]">
+                  O app ainda está em análise na Meta. Até a aprovação, cada Instagram é liberado à mão. Se você
+                  tocar em Conectar sem essa liberação, a Meta mostra um erro. Siga os passos:
+                </p>
+                <ol className="mt-4 space-y-3 text-sm">
+                  <li className="flex gap-3">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--warn)] text-xs font-bold text-black">
+                      1
+                    </span>
+                    <span>
+                      {info.igRequested ? (
+                        <>
+                          Recebemos o seu <strong>@{info.igRequested}</strong>. Errado? Mande o certo no WhatsApp.
+                        </>
+                      ) : (
+                        <>
+                          Envie o <strong>@ do seu Instagram</strong> para a gente no WhatsApp.
+                        </>
+                      )}
+                    </span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--warn)] text-xs font-bold text-black">
+                      2
+                    </span>
+                    <span>A gente libera o seu @ no app. Costuma levar pouco tempo; chame no WhatsApp se tiver pressa.</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--warn)] text-xs font-bold text-black">
+                      3
+                    </span>
+                    <span>
+                      No Instagram, aceite o convite em <strong>Configurações → Apps e sites → Convites de teste</strong>.
+                    </span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[var(--warn)] text-xs font-bold text-black">
+                      4
+                    </span>
+                    <span>
+                      Volte aqui e toque em <strong>Conectar Instagram</strong>, logo abaixo.
+                    </span>
+                  </li>
+                </ol>
+                <a
+                  href="https://wa.me/5549999317620?text=Oi!%20Acabei%20de%20criar%20minha%20conta%20no%20Comentou."
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-primary mt-5 inline-flex"
+                >
+                  Chamar no WhatsApp · (49) 99931-7620
+                </a>
+              </div>
+            </div>
           </section>
         )}
 
