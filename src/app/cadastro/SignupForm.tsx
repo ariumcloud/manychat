@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { BrandMark } from "@/components/BrandMark";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
@@ -45,15 +46,7 @@ export function SignupForm({ needsCode, plan }: { needsCode: boolean; plan: stri
   return (
     <form onSubmit={submit} className="card rise w-full max-w-sm p-7">
       <div className="mb-6">
-        <div
-          className="grid h-11 w-11 place-items-center rounded-2xl text-lg font-bold text-white"
-          style={{
-            background: "var(--brand)",
-            boxShadow: "0 10px 30px -10px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.25)",
-          }}
-        >
-          F
-        </div>
+        <BrandMark size={44} />
         <h1 className="mt-4 text-lg font-semibold tracking-tight">Criar sua conta</h1>
         <p className="mt-1 text-xs text-[var(--fg-muted)]">
           Depois de entrar, você conecta o seu Instagram.

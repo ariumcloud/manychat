@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BRAND } from "@/lib/brand";
+import { BrandMark } from "@/components/BrandMark";
 
 /**
  * Onze itens numa lista só viram parede. Em grupos, a pessoa acha o que quer
@@ -85,10 +86,9 @@ export function Sidebar({
         <Link
           href="/dashboard"
           title={BRAND.name}
-          className="grid h-9 w-9 place-items-center rounded-xl text-[15px] font-bold text-white"
-          style={{ background: "var(--brand)", boxShadow: "0 8px 22px -8px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.25)" }}
+          className="grid h-9 w-9 place-items-center"
         >
-          {BRAND.initial}
+          <BrandMark size={28} />
         </Link>
 
         <nav className="mt-5 flex flex-1 flex-col items-center gap-1 overflow-y-auto">
@@ -132,15 +132,7 @@ export function Sidebar({
     <aside className="flex w-[248px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)]">
       {/* Marca */}
       <div className="flex items-center gap-2.5 px-5 pb-5 pt-6">
-        <div
-          className="grid h-9 w-9 place-items-center rounded-xl text-[15px] font-bold text-white"
-          style={{
-            background: "var(--brand)",
-            boxShadow: "0 8px 22px -8px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.25)",
-          }}
-        >
-          {BRAND.initial}
-        </div>
+        <BrandMark size={34} />
         <div className="min-w-0">
           <p className="text-[15px] font-semibold leading-tight tracking-tight">{BRAND.name}</p>
           <p className="text-[11px] leading-tight text-[var(--fg-dim)]">{BRAND.short}</p>

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Loader2, Lock } from "lucide-react";
 import { BRAND } from "@/lib/brand";
+import { BrandMark } from "@/components/BrandMark";
 
 function LoginForm() {
   const router = useRouter();
@@ -46,15 +47,7 @@ function LoginForm() {
   return (
     <form onSubmit={submit} className="card rise w-full max-w-sm p-7">
       <div className="mb-6">
-        <div
-          className="grid h-11 w-11 place-items-center rounded-2xl text-lg font-bold text-white"
-          style={{
-            background: "var(--brand)",
-            boxShadow: "0 10px 30px -10px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.25)",
-          }}
-        >
-          F
-        </div>
+        <BrandMark size={44} />
         <h1 className="mt-4 text-lg font-semibold tracking-tight">Entrar no painel</h1>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--fg-muted)]">
           <Lock size={12} /> Use o e-mail (ou login) e a senha que você recebeu
