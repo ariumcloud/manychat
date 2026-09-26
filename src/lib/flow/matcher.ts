@@ -36,7 +36,12 @@ export function matchesTrigger(trigger: Trigger, rawText: string): boolean {
   }
 
   // "contains": palavra inteira, pra "oi" nao casar dentro de "coisa".
-  const words = new Set(text.split(" "));
+  const all = text.split(" ");
+  // Comentario de post que virou conversa ("... com voz parecida com a minha")
+  // nao e um pedido: quem quer o material comenta curto. Sem isto a automacao
+  // manda DM para critica e discussao so porque a palavra-chave apareceu.
+  if (trigger.kind === "comment_keyword" && all.length > MAX_COMMENT_WORDS) return false;
+  const words = new Set(all);
   return keywords.some((k) => {
     if (k.includes(" ")) return text.includes(k);
     if (words.has(k)) return true;
@@ -45,6 +50,9 @@ export function matchesTrigger(trigger: Trigger, rawText: string): boolean {
     return [...words].some((w) => isTypoOf(w, k));
   });
 }
+
+/** Comentario com mais palavras que isto nao aciona gatilho de palavra-chave (modo "contains"). */
+export const MAX_COMMENT_WORDS = 12;
 
 /** Palavras-chave mais curtas que isto so casam escritas certas. */
 const TYPO_MIN_LENGTH = 5;
