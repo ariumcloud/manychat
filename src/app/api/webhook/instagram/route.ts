@@ -440,6 +440,15 @@ async function handleMessaging(event: MessagingEvent) {
 
 // --- Comentarios -> DM -----------------------------------------------------
 
+/** COMMENT_DM_DELAY_SECONDS="5-20" (padrao). Limitado a 55s por causa do maxDuration. */
+function dmDelayRangeSeconds(): [number, number] {
+  const raw = process.env.COMMENT_DM_DELAY_SECONDS ?? "5-20";
+  const [a, b] = raw.split("-").map((n) => Number(n));
+  const min = Number.isFinite(a) ? Math.max(0, Math.min(a, 55)) : 5;
+  const max = Number.isFinite(b) ? Math.max(min, Math.min(b, 55)) : Math.max(min, 20);
+  return [min, max];
+}
+
 async function handleChange(change: ChangeEvent) {
   if (change.field !== "comments" && change.field !== "live_comments") return;
 
@@ -525,6 +534,13 @@ async function handleChange(change: ChangeEvent) {
       username: value?.from?.username ?? null,
     });
     contactId = contact.id;
+  }
+
+  // Espera aleatoria antes da DM: a Meta falou em mecanismo anti-automacao, e
+  // responder em ~1s toda vez parece robo. "min-max" em segundos; "0-0" desliga.
+  const [delayMin, delayMax] = dmDelayRangeSeconds();
+  if (delayMax > 0) {
+    await new Promise((r) => setTimeout(r, (delayMin + Math.random() * (delayMax - delayMin)) * 1000));
   }
 
   const result = await runFlow(flow, {
