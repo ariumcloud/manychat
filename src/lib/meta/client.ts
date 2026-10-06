@@ -57,7 +57,7 @@ async function call<T>(
   }
 
   if (!res.ok) {
-    const err = (json as { error?: { message?: string; code?: number } }).error;
+    const err = (json as { error?: { message?: string; code?: number; fbtrace_id?: string } }).error;
     // 190 = token invalido. Pode ser o cache desta instancia segurando um
     // token ja trocado pela renovacao: relê e tenta uma vez. Com token
     // invalido nada foi enviado, entao repetir nao duplica mensagem.
@@ -65,7 +65,13 @@ async function call<T>(
       forgetAccessToken();
       return call<T>(path, init, true);
     }
-    throw new MetaError(err?.message ?? `Graph API respondeu ${res.status}`, res.status, json);
+    // O fbtrace_id e o que o suporte da Meta pede pra investigar uma falha.
+    const trace = err?.fbtrace_id ? ` [fbtrace_id: ${err.fbtrace_id}]` : "";
+    throw new MetaError(
+      `${err?.message ?? `Graph API respondeu ${res.status}`}${trace}`,
+      res.status,
+      json,
+    );
   }
   return json as T;
 }
