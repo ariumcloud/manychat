@@ -142,9 +142,8 @@ type SendResult = { recipient_id?: string; message_id?: string };
 
 type Recipient = { id: string } | { comment_id: string };
 
-// Os dados mostram que a mesma pessoa costuma conseguir receber 1-2 min depois,
-// entao espacamos mais as tentativas. O teto de tempo protege o maxDuration (60s)
-// do webhook, que ainda precisa rodar o resto do fluxo.
+// Repeticao so para DMs normais (recipient.id). O teto de tempo protege o
+// maxDuration (60s) do webhook, que ainda precisa rodar o resto do fluxo.
 const SEND_RETRY_DELAYS_MS = [4000, 10000, 20000];
 const SEND_RETRY_BUDGET_MS = 40_000;
 
@@ -174,6 +173,10 @@ async function send(recipient: Recipient, message: unknown): Promise<SendResult>
         body: { recipient, message },
       });
     } catch (err) {
+      // Resposta privada (comment_id) nunca repete: os dados mostraram que a
+      // segunda tentativa no mesmo comentario volta "invalid for a private reply"
+      // e esconde o erro original. Sem repetir, o erro gravado e o da 1a tentativa.
+      if ("comment_id" in recipient) throw err;
       const base = SEND_RETRY_DELAYS_MS[attempt];
       if (base === undefined || !isTransientMetaError(err)) throw err;
       // +-25% de variacao pra rajadas de falhas nao tentarem todas no mesmo instante.
