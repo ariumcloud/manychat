@@ -142,7 +142,11 @@ type SendResult = { recipient_id?: string; message_id?: string };
 
 type Recipient = { id: string } | { comment_id: string };
 
-const SEND_RETRY_DELAYS_MS = [1000, 2500];
+// Os dados mostram que a mesma pessoa costuma conseguir receber 1-2 min depois,
+// entao espacamos mais as tentativas. O teto de tempo protege o maxDuration (60s)
+// do webhook, que ainda precisa rodar o resto do fluxo.
+const SEND_RETRY_DELAYS_MS = [4000, 10000, 20000];
+const SEND_RETRY_BUDGET_MS = 40_000;
 
 /**
  * Erro que a Meta devolve quando ela mesma esta instavel ("Service temporarily
@@ -162,6 +166,7 @@ function isTransientMetaError(err: unknown): boolean {
 }
 
 async function send(recipient: Recipient, message: unknown): Promise<SendResult> {
+  const started = Date.now();
   for (let attempt = 0; ; attempt++) {
     try {
       return await call<SendResult>(`${selfId()}/messages`, {
@@ -169,9 +174,12 @@ async function send(recipient: Recipient, message: unknown): Promise<SendResult>
         body: { recipient, message },
       });
     } catch (err) {
-      const delay = SEND_RETRY_DELAYS_MS[attempt];
-      if (delay === undefined || !isTransientMetaError(err)) throw err;
-      console.warn(`[meta] envio falhou (tentativa ${attempt + 1}), repetindo:`, (err as Error).message);
+      const base = SEND_RETRY_DELAYS_MS[attempt];
+      if (base === undefined || !isTransientMetaError(err)) throw err;
+      // +-25% de variacao pra rajadas de falhas nao tentarem todas no mesmo instante.
+      const delay = Math.round(base * (0.75 + Math.random() * 0.5));
+      if (Date.now() - started + delay > SEND_RETRY_BUDGET_MS) throw err;
+      console.warn(`[meta] envio falhou (tentativa ${attempt + 1}), repetindo em ${delay}ms:`, (err as Error).message);
       await new Promise((r) => setTimeout(r, delay));
     }
   }

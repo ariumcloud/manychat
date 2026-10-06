@@ -17,19 +17,23 @@ const TIME_BUDGET_MS = 240_000;
  * Por padrao e um ensaio (dryRun): so lista quem receberia. Para enviar de
  * verdade passe `send: true`. Corpo (tudo opcional):
  *   hours  janela de comentarios recentes (padrao 12, max 168 = 7 dias da Meta)
- *   limit  quantos enviar por chamada (padrao 10)
- *   gapSeconds  intervalo entre envios (padrao 8)
+ *   limit  quantos enviar por chamada (padrao 5)
+ *   gapMinSeconds / gapMaxSeconds  intervalo ALEATORIO entre envios (padrao 15-45),
+ *     pra nao parecer disparo em massa nem tomar bloqueio por spam
  */
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as {
     hours?: number;
     limit?: number;
-    gapSeconds?: number;
+    gapMinSeconds?: number;
+    gapMaxSeconds?: number;
     send?: boolean;
   };
   const hours = Math.min(Math.max(body.hours ?? 12, 1), 168);
-  const limit = Math.min(Math.max(body.limit ?? 10, 1), 30);
-  const gapMs = Math.min(Math.max(body.gapSeconds ?? 8, 0), 60) * 1000;
+  const limit = Math.min(Math.max(body.limit ?? 5, 1), 30);
+  const gapMin = Math.min(Math.max(body.gapMinSeconds ?? 15, 0), 120);
+  const gapMax = Math.min(Math.max(body.gapMaxSeconds ?? 45, gapMin), 120);
+  const nextGapMs = () => (gapMin + Math.random() * (gapMax - gapMin)) * 1000;
   const send = body.send === true;
 
   const supabase = db();
@@ -114,7 +118,12 @@ export async function POST(req: Request) {
       .eq("id", e.id);
 
     results.push({ user: e.from_username, ok: result.ok, error: result.error });
-    if (gapMs) await new Promise((r) => setTimeout(r, gapMs));
+    // Espera aleatoria antes do proximo; nao espera depois do ultimo nem se o tempo acabou.
+    const last = e === batch[batch.length - 1];
+    const wait = nextGapMs();
+    if (!last && Date.now() - started + wait < TIME_BUDGET_MS) {
+      await new Promise((r) => setTimeout(r, wait));
+    }
   }
 
   return NextResponse.json({
