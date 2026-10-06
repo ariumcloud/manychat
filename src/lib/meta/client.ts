@@ -136,11 +136,39 @@ type SendResult = { recipient_id?: string; message_id?: string };
 
 type Recipient = { id: string } | { comment_id: string };
 
+const SEND_RETRY_DELAYS_MS = [1000, 2500];
+
+/**
+ * Erro que a Meta devolve quando ela mesma esta instavel ("Service temporarily
+ * unavailable", "unexpected error", 5xx). Vale repetir. Timeout/rede nao entram:
+ * ali a mensagem pode ter saido e repetir duplicaria.
+ */
+function isTransientMetaError(err: unknown): boolean {
+  if (!(err instanceof MetaError)) return false;
+  if (err.status >= 500) return true;
+  const e = (err.body as { error?: { code?: number; is_transient?: boolean } })?.error;
+  return (
+    e?.is_transient === true ||
+    e?.code === 1 ||
+    e?.code === 2 ||
+    /temporarily unavailable|unexpected error|try again later/i.test(err.message)
+  );
+}
+
 async function send(recipient: Recipient, message: unknown): Promise<SendResult> {
-  return call<SendResult>(`${selfId()}/messages`, {
-    method: "POST",
-    body: { recipient, message },
-  });
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await call<SendResult>(`${selfId()}/messages`, {
+        method: "POST",
+        body: { recipient, message },
+      });
+    } catch (err) {
+      const delay = SEND_RETRY_DELAYS_MS[attempt];
+      if (delay === undefined || !isTransientMetaError(err)) throw err;
+      console.warn(`[meta] envio falhou (tentativa ${attempt + 1}), repetindo:`, (err as Error).message);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
 }
 
 /** Texto puro, ou card com ate 3 botoes quando houver botao. */
