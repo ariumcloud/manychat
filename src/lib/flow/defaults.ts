@@ -52,3 +52,39 @@ export const GROUP_BUTTON = {
   label: "Grupo de networking",
   url: "https://chat.whatsapp.com/GdXBDckyHHx73enAYmvw9z?mode=gi_t",
 };
+
+/**
+ * Titulos alternativos dos botoes. O mesmo titulo em todas as DMs e mais um
+ * padrao repetido. Valem quando o botao nao tem `labelVariants` proprios, e o
+ * casamento ignora maiuscula, "!" e emoji. Ate 20 caracteres (limite do IG).
+ */
+const BUTTON_LABEL_FAMILIES: Array<{ match: RegExp; options: string[] }> = [
+  {
+    match: /^(ver (agora|mais)|acessar conte[uú]do)$/,
+    options: ["Ver agora!", "Abrir aqui", "Acessar agora", "Pegar o link", "Ver o conteúdo"],
+  },
+  {
+    match: /^grupo de networking$/,
+    options: ["Grupo de networking", "Entrar no grupo", "Grupo no WhatsApp", "Participar do grupo", "Networking aqui"],
+  },
+  {
+    match: /^j[aá] te segui$/,
+    options: ["JÁ TE SEGUI ✅", "Já segui ✅", "Pronto, já sigo ✅", "Já estou seguindo ✅", "Segui, pode mandar"],
+  },
+];
+
+function normalizeLabel(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N} ]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Opcoes de titulo para um botao: as dele, as da familia, ou so o proprio. */
+export function buttonLabelOptions(label: string, own?: string[]): string[] {
+  const mine = [label, ...(own ?? [])].map((l) => l.trim()).filter(Boolean);
+  if (own?.length) return mine;
+  const family = BUTTON_LABEL_FAMILIES.find((f) => f.match.test(normalizeLabel(label)));
+  return (family?.options ?? mine).map((l) => l.slice(0, 20));
+}

@@ -8,9 +8,10 @@ export type NodeKind =
   | "condition"
   | "carousel";
 
+/** `labelVariants`: titulos alternativos; a cada envio sai um sorteado. */
 export type FlowButton =
-  | { kind: "url"; label: string; url: string }
-  | { kind: "reply"; label: string; payload: string };
+  | { kind: "url"; label: string; labelVariants?: string[]; url: string }
+  | { kind: "reply"; label: string; labelVariants?: string[]; payload: string };
 
 export type FlowNodeData = {
   label?: string;

@@ -20,6 +20,8 @@ import {
 import { createTrackedLink, trackingBaseUrl } from "../links";
 import { CATALOG_LIMITS, cardHandle, type CatalogItem } from "../catalog";
 import type { Flow, FlowEdge, FlowNode } from "./types";
+import { buttonLabelOptions } from "./defaults";
+import { applyName, firstNameOf, hasNamePlaceholder } from "./personalize";
 
 /**
  * Em serverless a funcao morre junto com a resposta, entao delays longos nao
@@ -222,6 +224,14 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
     const conv = await getOrCreateConversation(ctx.accountId, contactId);
     conversationId = conv.id as string;
     return conversationId;
+  };
+
+  // `{nome}` no texto vira o primeiro nome do contato. So consulta o banco
+  // quando o texto sorteado realmente tem o marcador.
+  const personalize = async (text: string) => {
+    if (!hasNamePlaceholder(text)) return text;
+    const { data } = await supabase.from("mc_contacts").select("name").eq("id", contactId).maybeSingle();
+    return applyName(text, firstNameOf(data?.name));
   };
 
   /**
@@ -555,7 +565,7 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
           break;
 
         case "text": {
-          const body = pickText(flow.id, node);
+          const body = await personalize(pickText(flow.id, node));
           let text = body;
           let url: string | null = null;
           // Rastreado so com dominio proprio (ver trackingBaseUrl).
@@ -623,12 +633,18 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
         case "buttons": {
           // Cada link vira um /r/<token> próprio deste envio — é assim que o
           // clique volta pra gente.
+          const buttonsNodeId = node.id;
           const buttons: TemplateButton[] = await Promise.all(
-            (node.data.buttons ?? []).map(async (b) =>
-              b.kind === "url"
+            (node.data.buttons ?? []).map(async (b, i) => {
+              // Titulo sorteado entre as opcoes do botao (sem repetir o anterior).
+              const title = pickFresh(
+                `${flow.id}:${buttonsNodeId}:btn${i}`,
+                buttonLabelOptions(b.label, b.labelVariants),
+              ).slice(0, 20);
+              return b.kind === "url"
                 ? ({
                     type: "web_url",
-                    title: b.label,
+                    title,
                     url: await createTrackedLink({
                       accountId: ctx.accountId,
                       url: b.url,
@@ -638,11 +654,11 @@ export async function runFlow(flow: Flow, ctx: RunContext): Promise<RunResult> {
                       baseUrl: trackingBaseUrl(),
                     }),
                   } as const)
-                : ({ type: "postback", title: b.label, payload: b.payload } as const),
-            ),
+                : ({ type: "postback", title, payload: b.payload } as const);
+            }),
           );
           // O card exige um corpo; um espaco basta quando o no nao tem texto.
-          const text = pickText(flow.id, node).trim() || " ";
+          const text = (await personalize(pickText(flow.id, node))).trim() || " ";
 
           // Pedido que espera toque ("JA TE SEGUI") voltando por um toque:
           // a pessoa foi reprovada no portao. O botao do pedido anterior
