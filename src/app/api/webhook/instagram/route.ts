@@ -393,6 +393,7 @@ async function handleMessaging(event: MessagingEvent) {
       const resumeAt =
         resumeNodeId || flow.nodes?.find((n) => n.type === "condition")?.id || null;
 
+      await humanDelay();
       await runFlow(flow, {
         accountId: account.id,
         contactId: contact.id,
@@ -424,6 +425,7 @@ async function handleMessaging(event: MessagingEvent) {
     const flow = await loadFlow(chosen.flow_id, account.id);
     if (!flow) continue;
 
+    await humanDelay();
     await runFlow(flow, {
       accountId: account.id,
       contactId: contact.id,
@@ -440,13 +442,24 @@ async function handleMessaging(event: MessagingEvent) {
 
 // --- Comentarios -> DM -----------------------------------------------------
 
-/** COMMENT_DM_DELAY_SECONDS="5-20" (padrao). Limitado a 55s por causa do maxDuration. */
+/** COMMENT_DM_DELAY_SECONDS="10-15" (padrao). Limitado a 55s por causa do maxDuration. */
 function dmDelayRangeSeconds(): [number, number] {
-  const raw = process.env.COMMENT_DM_DELAY_SECONDS ?? "5-20";
+  const raw = process.env.COMMENT_DM_DELAY_SECONDS ?? "10-15";
   const [a, b] = raw.split("-").map((n) => Number(n));
   const min = Number.isFinite(a) ? Math.max(0, Math.min(a, 55)) : 5;
-  const max = Number.isFinite(b) ? Math.max(min, Math.min(b, 55)) : Math.max(min, 20);
+  const max = Number.isFinite(b) ? Math.max(min, Math.min(b, 55)) : Math.max(min, 15);
   return [min, max];
+}
+
+/**
+ * Espera aleatoria antes de responder, como uma pessoa digitando. Vale para
+ * toda resposta automatica (comentario, toque em botao, palavra-chave na DM):
+ * responder em ~1s toda vez parece robo. "0-0" desliga.
+ */
+async function humanDelay() {
+  const [min, max] = dmDelayRangeSeconds();
+  if (max <= 0) return;
+  await new Promise((r) => setTimeout(r, (min + Math.random() * (max - min)) * 1000));
 }
 
 async function handleChange(change: ChangeEvent) {
@@ -536,12 +549,7 @@ async function handleChange(change: ChangeEvent) {
     contactId = contact.id;
   }
 
-  // Espera aleatoria antes da DM: a Meta falou em mecanismo anti-automacao, e
-  // responder em ~1s toda vez parece robo. "min-max" em segundos; "0-0" desliga.
-  const [delayMin, delayMax] = dmDelayRangeSeconds();
-  if (delayMax > 0) {
-    await new Promise((r) => setTimeout(r, (delayMin + Math.random() * (delayMax - delayMin)) * 1000));
-  }
+  await humanDelay();
 
   const result = await runFlow(flow, {
     accountId: account.id,
