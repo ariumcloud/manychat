@@ -18,6 +18,8 @@ const TIME_BUDGET_MS = 240_000;
  * verdade passe `send: true`. Corpo (tudo opcional):
  *   hours  janela de comentarios recentes (padrao 12, max 168 = 7 dias da Meta)
  *   limit  quantos enviar por chamada (padrao 5)
+ *   commentIds  so estes comentarios (ignora o filtro de erro; o evento precisa ter
+ *     gatilho e DM nao enviada). Serve para quem comentou antes da automacao existir.
  *   gapMinSeconds / gapMaxSeconds  intervalo ALEATORIO entre envios (padrao 15-45),
  *     pra nao parecer disparo em massa nem tomar bloqueio por spam
  */
@@ -28,6 +30,7 @@ export async function POST(req: Request) {
     gapMinSeconds?: number;
     gapMaxSeconds?: number;
     send?: boolean;
+    commentIds?: string[];
   };
   const hours = Math.min(Math.max(body.hours ?? 12, 1), 168);
   const limit = Math.min(Math.max(body.limit ?? 5, 1), 30);
@@ -40,15 +43,18 @@ export async function POST(req: Request) {
   const account = await getAccount();
   const since = new Date(Date.now() - hours * 3600_000).toISOString();
 
-  const { data: events, error } = await supabase
+  const onlyIds = (body.commentIds ?? []).filter((id) => typeof id === "string" && id).slice(0, 20);
+  let eventsQuery = supabase
     .from("mc_comment_events")
     .select("id, comment_id, from_igsid, from_username, text, matched_trigger_id, created_at")
     .eq("account_id", account.id)
     .eq("dm_sent", false)
-    .ilike("error", "%temporarily unavailable%")
     .not("matched_trigger_id", "is", null)
-    .gte("created_at", since)
-    .order("created_at", { ascending: false });
+    .gte("created_at", since);
+  eventsQuery = onlyIds.length
+    ? eventsQuery.in("comment_id", onlyIds)
+    : eventsQuery.ilike("error", "%temporarily unavailable%");
+  const { data: events, error } = await eventsQuery.order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Quem ja recebeu esse fluxo depois (outro comentario que funcionou) fica de fora.
