@@ -442,9 +442,13 @@ async function handleMessaging(event: MessagingEvent) {
 
 // --- Comentarios -> DM -----------------------------------------------------
 
-/** COMMENT_DM_DELAY_SECONDS="10-15" (padrao). Limitado a 55s por causa do maxDuration. */
-function dmDelayRangeSeconds(): [number, number] {
-  const raw = process.env.COMMENT_DM_DELAY_SECONDS ?? "10-15";
+/**
+ * Faixa de espera em segundos, no formato "min-max". Limitada a 55s por causa
+ * do maxDuration. COMMENT_DM_DELAY_SECONDS (padrao "10-15") vale para a DM;
+ * COMMENT_REPLY_DELAY_SECONDS (padrao "4-9") para a resposta publica.
+ */
+function delayRangeSeconds(envName: string, fallback: string): [number, number] {
+  const raw = process.env[envName] ?? fallback;
   const [a, b] = raw.split("-").map((n) => Number(n));
   const min = Number.isFinite(a) ? Math.max(0, Math.min(a, 55)) : 5;
   const max = Number.isFinite(b) ? Math.max(min, Math.min(b, 55)) : Math.max(min, 15);
@@ -456,8 +460,8 @@ function dmDelayRangeSeconds(): [number, number] {
  * toda resposta automatica (comentario, toque em botao, palavra-chave na DM):
  * responder em ~1s toda vez parece robo. "0-0" desliga.
  */
-async function humanDelay() {
-  const [min, max] = dmDelayRangeSeconds();
+async function humanDelay(range: [number, number] = delayRangeSeconds("COMMENT_DM_DELAY_SECONDS", "10-15")) {
+  const [min, max] = range;
   if (max <= 0) return;
   await new Promise((r) => setTimeout(r, (min + Math.random() * (max - min)) * 1000));
 }
@@ -511,6 +515,8 @@ async function handleChange(change: ChangeEvent) {
   // pra nao ficar obvio que e bot).
   if (chosen.public_reply_enabled && chosen.public_reply_texts.length) {
     const pick = pickFresh(`reply:${chosen.id}`, chosen.public_reply_texts);
+    // Responder embaixo do comentario em ~1s parece robo: espera um pouco antes.
+    await humanDelay(delayRangeSeconds("COMMENT_REPLY_DELAY_SECONDS", "4-9"));
     try {
       await replyToComment(commentId, pick);
       await supabase.from("mc_comment_events").update({ public_replied: true }).eq("id", recorded.id);
